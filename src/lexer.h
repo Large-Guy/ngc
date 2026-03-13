@@ -128,6 +128,8 @@ enum class TokenType {
     TOKEN_TYPE_WHILE,
     TOKEN_TYPE_DO,
     TOKEN_TYPE_FOR,
+
+    TOKEN_TYPE_COUNT
 };
 
 std::string TokenTypeToString(TokenType type);
