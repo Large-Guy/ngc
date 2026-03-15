@@ -19,7 +19,7 @@ public:
     static std::unique_ptr<AstNode> Assign(Parser& parser, std::unique_ptr<AstNode> target, bool canAssign) {
         auto assignment = parser.previous_;
         switch (assignment.type) {
-            case TokenType::TOKEN_TYPE_EQUAL: {
+            case TokenType::EQUAL: {
                 auto assign = AstNode::New(AstNodeType::ASSIGN);
                 assign->AddNode(std::move(target));
                 assign->AddNode(std::move(parser.Expression()));
@@ -34,7 +34,7 @@ public:
     
     static std::unique_ptr<AstNode> Number(Parser& parser, bool canAssign) {
         auto num = parser.previous_;
-        if (parser.previous_.type == TokenType::TOKEN_TYPE_FLOAT) {
+        if (parser.previous_.type == TokenType::FLOAT) {
             return AstNode::New(AstNodeType::FLOAT, num);
         }
         return AstNode::New(AstNodeType::INT, num);
@@ -45,18 +45,18 @@ public:
 
     static std::unique_ptr<AstNode> Group(Parser& parser, bool canAssign) {
         auto node = parser.Expression();
-        if (parser.Match(TokenType::TOKEN_TYPE_COMMA)) {
+        if (parser.Match(TokenType::COMMA)) {
             auto list = AstNode::New(AstNodeType::LIST);
             list->AddNode(std::move(node));
             do {
                 auto next = parser.Expression();
                 list->AddNode(std::move(next));
-            } while (parser.Match(TokenType::TOKEN_TYPE_COMMA));
+            } while (parser.Match(TokenType::COMMA));
 
             node = std::move(list);
         }
 
-        parser.Consume(TokenType::TOKEN_TYPE_RIGHT_PAREN, "Expected closing ')'");
+        parser.Consume(TokenType::RIGHT_PAREN, "Expected closing ')'");
 
         return node;
     }
@@ -65,22 +65,22 @@ public:
         auto unary = parser.previous_;
         auto operand = parser.ParsePrecedence(Parser::Precedence::UNARY);
         switch (unary.type) {
-            case TokenType::TOKEN_TYPE_MINUS: {
+            case TokenType::MINUS: {
                 auto negate = AstNode::New(AstNodeType::NEGATE);
                 negate->AddNode(std::move(operand));
                 return negate;
             }
-            case TokenType::TOKEN_TYPE_AND: {
+            case TokenType::AND: {
                 auto address = AstNode::New(AstNodeType::ADDRESS);
                 address->AddNode(std::move(operand));
                 return address;
             }
-            case TokenType::TOKEN_TYPE_STAR: {
+            case TokenType::STAR: {
                 auto negate = AstNode::New(AstNodeType::LOCK);
                 negate->AddNode(std::move(operand));
                 return negate;
             }
-            case TokenType::TOKEN_TYPE_BANG: {
+            case TokenType::BANG: {
                 auto negate = AstNode::New(AstNodeType::NOT);
                 negate->AddNode(std::move(operand));
                 return negate;
@@ -96,16 +96,16 @@ public:
     static std::unique_ptr<AstNode> Cast(Parser& parser, bool canAssign) {
         auto type = parser.BuildType(parser.NodeFromType(parser.previous_));
         std::unique_ptr<AstNode> cast;
-        if (parser.Match(TokenType::TOKEN_TYPE_BANG)) {
+        if (parser.Match(TokenType::BANG)) {
             cast = AstNode::New(AstNodeType::REINTERPRET);
         }
         else {
             cast = AstNode::New(AstNodeType::CAST);
         }
-        parser.Consume(TokenType::TOKEN_TYPE_LEFT_PAREN, "Expected opening '('");
+        parser.Consume(TokenType::LEFT_PAREN, "Expected opening '('");
         cast->AddNode(std::move(type));
         cast->AddNode(parser.Expression());
-        parser.Consume(TokenType::TOKEN_TYPE_RIGHT_PAREN, "Expected closing ')'");
+        parser.Consume(TokenType::RIGHT_PAREN, "Expected closing ')'");
 
         return cast;
     }
@@ -113,7 +113,7 @@ public:
     static std::unique_ptr<AstNode> Heap(Parser& parser, bool canAssign) {
         auto node = AstNode::New(AstNodeType::HEAP);
         auto value = parser.Expression();
-        parser.Consume(TokenType::TOKEN_TYPE_RIGHT_BRACKET, "Expected closing ']'");
+        parser.Consume(TokenType::RIGHT_BRACKET, "Expected closing ']'");
         node->AddNode(std::move(value));
         return node;
     }
@@ -127,11 +127,11 @@ public:
     static std::unique_ptr<AstNode> Literal(Parser& parser, bool canAssign) {
         auto token = parser.previous_;
         switch (token.type) {
-            case TokenType::TOKEN_TYPE_NULL:
+            case TokenType::NULL_:
                 return AstNode::New(AstNodeType::_NULL);
-            case TokenType::TOKEN_TYPE_TRUE:
+            case TokenType::TRUE:
                 return AstNode::New(AstNodeType::TRUE);
-            case TokenType::TOKEN_TYPE_FALSE:
+            case TokenType::FALSE:
                 return AstNode::New(AstNodeType::FALSE);
             default: {
                 parser.Error(token, "Unsupported literal type");
@@ -150,71 +150,75 @@ public:
         std::unique_ptr<AstNode> node = nullptr;
 
         switch (op.type) {
-            case TokenType::TOKEN_TYPE_PLUS: {
+            case TokenType::PLUS: {
                 node = AstNode::New(AstNodeType::ADD);
                 break;
             }
-            case TokenType::TOKEN_TYPE_MINUS: {
+            case TokenType::MINUS: {
                 node = AstNode::New(AstNodeType::SUBTRACT);
                 break;
             }
-            case TokenType::TOKEN_TYPE_STAR: {
+            case TokenType::STAR: {
                 node = AstNode::New(AstNodeType::MULTIPLY);
                 break;
             }
-            case TokenType::TOKEN_TYPE_SLASH: {
+            case TokenType::SLASH: {
                 node = AstNode::New(AstNodeType::DIVIDE);
                 break;
             }
-            case TokenType::TOKEN_TYPE_STAR_STAR: {
+            case TokenType::STAR_STAR: {
                 node = AstNode::New(AstNodeType::EXPONENT);
                 break;
             }
-            case TokenType::TOKEN_TYPE_PERCENT: {
+            case TokenType::PERCENT: {
                 node = AstNode::New(AstNodeType::MODULO);
                 break;
             }
-            case TokenType::TOKEN_TYPE_PIPE: {
+            case TokenType::PIPE: {
                 node = AstNode::New(AstNodeType::BITWISE_OR);
                 break;
             }
-            case TokenType::TOKEN_TYPE_CARET: {
+            case TokenType::CARET: {
                 node = AstNode::New(AstNodeType::BITWISE_XOR);
                 break;
             }
-            case TokenType::TOKEN_TYPE_AND: {
+            case TokenType::AND: {
                 node = AstNode::New(AstNodeType::BITWISE_AND);
                 break;
             }
-            case TokenType::TOKEN_TYPE_GREATER: {
+            case TokenType::GREATER: {
                 node = AstNode::New(AstNodeType::GREATER);
                 break;
             }
-            case TokenType::TOKEN_TYPE_GREATER_EQUAL: {
+            case TokenType::GREATER_EQUAL: {
                 node = AstNode::New(AstNodeType::GREATER_EQUAL);
                 break;
             }
-            case TokenType::TOKEN_TYPE_LESS: {
+            case TokenType::LESS: {
                 node = AstNode::New(AstNodeType::LESS);
                 break;
             }
-            case TokenType::TOKEN_TYPE_LESS_EQUAL: {
+            case TokenType::LESS_EQUAL: {
                 node = AstNode::New(AstNodeType::LESS_EQUAL);
                 break;
             }
-            case TokenType::TOKEN_TYPE_GREATER_GREATER: {
+            case TokenType::GREATER_GREATER: {
                 node = AstNode::New(AstNodeType::SHIFT_RIGHT);
                 break;
             }
-            case TokenType::TOKEN_TYPE_LESS_LESS: {
+            case TokenType::EQUAL_EQUAL: {
+                node = AstNode::New(AstNodeType::EQUAL);
+                break;
+            }
+            case TokenType::LESS_LESS: {
                 node = AstNode::New(AstNodeType::SHIFT_LEFT);
                 break;
             }
-            case TokenType::TOKEN_TYPE_AND_AND: {
+            case TokenType::AND_AND: {
                 node = AstNode::New(AstNodeType::AND);
                 break;
             }
-            case TokenType::TOKEN_TYPE_PIPE_PIPE: {
+            case TokenType::PIPE_PIPE: {
                 node = AstNode::New(AstNodeType::OR);
                 break;
             }
@@ -233,9 +237,9 @@ public:
     static std::unique_ptr<AstNode> Interval(Parser& parser, std::unique_ptr<AstNode> left, bool canAssign) {
         auto group = [&](std::unique_ptr<AstNode> prior) -> std::unique_ptr<AstNode> {
             std::unique_ptr<AstNode> entry = nullptr;
-            if (parser.Match(TokenType::TOKEN_TYPE_LEFT_BRACKET)) {
+            if (parser.Match(TokenType::LEFT_BRACKET)) {
                 entry = AstNode::New(AstNodeType::GREATER_EQUAL);
-            } else if (parser.Match(TokenType::TOKEN_TYPE_LEFT_PAREN)) {
+            } else if (parser.Match(TokenType::LEFT_PAREN)) {
                 entry = AstNode::New(AstNodeType::GREATER);
             }
             else {
@@ -243,12 +247,12 @@ public:
                 return nullptr;
             }
             auto a = parser.Expression();
-            parser.Consume(TokenType::TOKEN_TYPE_COMMA, "Expected ','");
+            parser.Consume(TokenType::COMMA, "Expected ','");
             auto b = parser.Expression();
             std::unique_ptr<AstNode> exit = nullptr;
-            if (parser.Match(TokenType::TOKEN_TYPE_RIGHT_BRACKET)) {
+            if (parser.Match(TokenType::RIGHT_BRACKET)) {
                 exit = AstNode::New(AstNodeType::LESS_EQUAL);
-            } else if (parser.Match(TokenType::TOKEN_TYPE_RIGHT_PAREN)) {
+            } else if (parser.Match(TokenType::RIGHT_PAREN)) {
                 exit = AstNode::New(AstNodeType::LESS);
             }
             else {
@@ -267,16 +271,16 @@ public:
             return and_;
         };
         std::unique_ptr<AstNode> root = group(std::move(left->Clone()));
-        while (!parser.Match(TokenType::TOKEN_TYPE_RIGHT_BRACE)) {
+        while (!parser.Match(TokenType::RIGHT_BRACE)) {
             std::unique_ptr<AstNode> node = nullptr;
-            if (parser.Match(TokenType::TOKEN_TYPE_COMMA)) {
+            if (parser.Match(TokenType::COMMA)) {
 
                 node = AstNode::New(AstNodeType::EQUAL);
                 node->AddNode(std::move(left->Clone()));
                 node->AddNode(std::move(parser.Expression()));
 
             }
-            else if (parser.Match(TokenType::TOKEN_TYPE_IDENTIFIER) &&
+            else if (parser.Match(TokenType::IDENTIFIER) &&
                 (parser.previous_.value == "u" || parser.previous_.value == "U")
                 ) {
                 node = group(std::move(left->Clone()));
@@ -304,14 +308,14 @@ public:
         auto node = AstNode::New(AstNodeType::CALL);
         node->AddNode(std::move(left));
 
-        if (!parser.Check(TokenType::TOKEN_TYPE_RIGHT_PAREN)) {
+        if (!parser.Check(TokenType::RIGHT_PAREN)) {
             do {
                 auto argument = parser.Expression();
                 node->AddNode(std::move(argument));
-            } while (parser.Check(TokenType::TOKEN_TYPE_COMMA));
+            } while (parser.Check(TokenType::COMMA));
         }
 
-        parser.Consume(TokenType::TOKEN_TYPE_RIGHT_PAREN, "Expected closing ')'");
+        parser.Consume(TokenType::RIGHT_PAREN, "Expected closing ')'");
 
         return node;
     }
@@ -320,7 +324,7 @@ public:
         auto node = AstNode::New(AstNodeType::INDEX);
         node->AddNode(std::move(left));
         auto index = parser.Expression();
-        parser.Consume(TokenType::TOKEN_TYPE_RIGHT_BRACKET, "Expected closing ']'");
+        parser.Consume(TokenType::RIGHT_BRACKET, "Expected closing ']'");
         node->AddNode(std::move(index));
 
         return node;
@@ -329,7 +333,7 @@ public:
     static std::unique_ptr<AstNode> Field(Parser& parser, std::unique_ptr<AstNode> left, bool canAssign) {
         auto node = AstNode::New(AstNodeType::GET);
         node->AddNode(std::move(left));
-        parser.Consume(TokenType::TOKEN_TYPE_IDENTIFIER, "Expected field name");
+        parser.Consume(TokenType::IDENTIFIER, "Expected field name");
         auto field = AstNode::New(AstNodeType::NAME, parser.previous_);
         node->AddNode(std::move(field));
 
@@ -342,62 +346,62 @@ public:
 
 std::unordered_map<TokenType, Parser::ParseRule> Parser::BuildRules() {
     std::unordered_map<TokenType, ParseRule> rules{};
-    rules[TokenType::TOKEN_TYPE_LEFT_PAREN] = {Expressions::Group, Expressions::Call, Precedence::CALL};
-    rules[TokenType::TOKEN_TYPE_LEFT_BRACKET] = {Expressions::Heap, Expressions::Index, Precedence::CALL};
-    rules[TokenType::TOKEN_TYPE_LEFT_BRACE] = {nullptr, Expressions::Interval, Precedence::CALL};
-    rules[TokenType::TOKEN_TYPE_DOT] = {nullptr, Expressions::Field, Precedence::CALL};
-    rules[TokenType::TOKEN_TYPE_PLUS] = {nullptr, Expressions::Binary, Precedence::TERM};
-    rules[TokenType::TOKEN_TYPE_MINUS] = {Expressions::Unary, Expressions::Binary, Precedence::TERM};
-    rules[TokenType::TOKEN_TYPE_STAR] = {Expressions::Unary, Expressions::Binary, Precedence::FACTOR};
-    rules[TokenType::TOKEN_TYPE_STAR_STAR] = {nullptr, Expressions::Binary, Precedence::EXPONENT};
-    rules[TokenType::TOKEN_TYPE_STAR_EQUAL] = {nullptr, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_SLASH] = {nullptr, Expressions::Binary, Precedence::FACTOR};
-    rules[TokenType::TOKEN_TYPE_BANG] = {Expressions::Unary, nullptr, Precedence::TERM};
-    rules[TokenType::TOKEN_TYPE_BANG_EQUAL] = {nullptr, Expressions::Binary, Precedence::EQUALITY};
-    rules[TokenType::TOKEN_TYPE_EQUAL_EQUAL] = {nullptr, Expressions::Binary, Precedence::EQUALITY};
-    rules[TokenType::TOKEN_TYPE_GREATER] = {nullptr, Expressions::Binary, Precedence::COMPARISON};
-    rules[TokenType::TOKEN_TYPE_GREATER_GREATER] = {nullptr, Expressions::Binary, Precedence::SHIFT};
-    rules[TokenType::TOKEN_TYPE_GREATER_EQUAL] = {nullptr, Expressions::Binary, Precedence::COMPARISON};
-    rules[TokenType::TOKEN_TYPE_LESS] = {nullptr, Expressions::Binary, Precedence::COMPARISON};
-    rules[TokenType::TOKEN_TYPE_LESS_LESS] = {nullptr, Expressions::Binary, Precedence::SHIFT};
-    rules[TokenType::TOKEN_TYPE_LESS_EQUAL] = {nullptr, Expressions::Binary, Precedence::COMPARISON};
-    rules[TokenType::TOKEN_TYPE_AND] = {Expressions::Unary, Expressions::Binary, Precedence::BITWISE_AND};
-    rules[TokenType::TOKEN_TYPE_AND_AND] = {nullptr, Expressions::Binary, Precedence::AND};
-    rules[TokenType::TOKEN_TYPE_PIPE] = {nullptr, Expressions::Binary, Precedence::BITWISE_OR};
-    rules[TokenType::TOKEN_TYPE_PIPE_PIPE] = {nullptr, Expressions::Binary, Precedence::OR};
-    rules[TokenType::TOKEN_TYPE_PERCENT] = {nullptr, Expressions::Binary, Precedence::MODULO};
-    rules[TokenType::TOKEN_TYPE_CARET] = {nullptr, Expressions::Binary, Precedence::BITWISE_XOR};
-    rules[TokenType::TOKEN_TYPE_TILDE] = {Expressions::Unary, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_STRING_LITERAL] = {Expressions::String, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_CHARACTER] = {Expressions::Number, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_INTEGER] = {Expressions::Number, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_FLOAT] = {Expressions::Number, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_IDENTIFIER] = {Expressions::Variable, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_I8] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_I16] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_I32] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_I64] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_U8] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_U16] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_U32] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_U64] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_F32] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_F64] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_ISIZE] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_USIZE] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_BOOL] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::TOKEN_TYPE_NULL] = {Expressions::Literal, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_TRUE] = {Expressions::Literal, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_FALSE] = {Expressions::Literal, nullptr, Precedence::NONE};
-    rules[TokenType::TOKEN_TYPE_IN] = {nullptr, Expressions::Include, Precedence::CALL};
-    rules[TokenType::TOKEN_TYPE_QUESTION] = {nullptr, Expressions::Ternary, Precedence::TERNARY};
-    rules[TokenType::TOKEN_TYPE_EQUAL] = {nullptr, Expressions::Assign, Precedence::ASSIGNMENT};
+    rules[TokenType::LEFT_PAREN] = {Expressions::Group, Expressions::Call, Precedence::CALL};
+    rules[TokenType::LEFT_BRACKET] = {Expressions::Heap, Expressions::Index, Precedence::CALL};
+    rules[TokenType::LEFT_BRACE] = {nullptr, Expressions::Interval, Precedence::CALL};
+    rules[TokenType::DOT] = {nullptr, Expressions::Field, Precedence::CALL};
+    rules[TokenType::PLUS] = {nullptr, Expressions::Binary, Precedence::TERM};
+    rules[TokenType::MINUS] = {Expressions::Unary, Expressions::Binary, Precedence::TERM};
+    rules[TokenType::STAR] = {Expressions::Unary, Expressions::Binary, Precedence::FACTOR};
+    rules[TokenType::STAR_STAR] = {nullptr, Expressions::Binary, Precedence::EXPONENT};
+    rules[TokenType::STAR_EQUAL] = {nullptr, nullptr, Precedence::NONE};
+    rules[TokenType::SLASH] = {nullptr, Expressions::Binary, Precedence::FACTOR};
+    rules[TokenType::BANG] = {Expressions::Unary, nullptr, Precedence::TERM};
+    rules[TokenType::BANG_EQUAL] = {nullptr, Expressions::Binary, Precedence::EQUALITY};
+    rules[TokenType::EQUAL_EQUAL] = {nullptr, Expressions::Binary, Precedence::EQUALITY};
+    rules[TokenType::GREATER] = {nullptr, Expressions::Binary, Precedence::COMPARISON};
+    rules[TokenType::GREATER_GREATER] = {nullptr, Expressions::Binary, Precedence::SHIFT};
+    rules[TokenType::GREATER_EQUAL] = {nullptr, Expressions::Binary, Precedence::COMPARISON};
+    rules[TokenType::LESS] = {nullptr, Expressions::Binary, Precedence::COMPARISON};
+    rules[TokenType::LESS_LESS] = {nullptr, Expressions::Binary, Precedence::SHIFT};
+    rules[TokenType::LESS_EQUAL] = {nullptr, Expressions::Binary, Precedence::COMPARISON};
+    rules[TokenType::AND] = {Expressions::Unary, Expressions::Binary, Precedence::BITWISE_AND};
+    rules[TokenType::AND_AND] = {nullptr, Expressions::Binary, Precedence::AND};
+    rules[TokenType::PIPE] = {nullptr, Expressions::Binary, Precedence::BITWISE_OR};
+    rules[TokenType::PIPE_PIPE] = {nullptr, Expressions::Binary, Precedence::OR};
+    rules[TokenType::PERCENT] = {nullptr, Expressions::Binary, Precedence::MODULO};
+    rules[TokenType::CARET] = {nullptr, Expressions::Binary, Precedence::BITWISE_XOR};
+    rules[TokenType::TILDE] = {Expressions::Unary, nullptr, Precedence::UNARY};
+    rules[TokenType::STRING_LITERAL] = {Expressions::String, nullptr, Precedence::NONE};
+    rules[TokenType::CHARACTER] = {Expressions::Number, nullptr, Precedence::NONE};
+    rules[TokenType::INTEGER] = {Expressions::Number, nullptr, Precedence::NONE};
+    rules[TokenType::FLOAT] = {Expressions::Number, nullptr, Precedence::NONE};
+    rules[TokenType::IDENTIFIER] = {Expressions::Variable, nullptr, Precedence::NONE};
+    rules[TokenType::I8] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::I16] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::I32] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::I64] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::U8] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::U16] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::U32] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::U64] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::F32] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::F64] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::ISIZE] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::USIZE] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::BOOL] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::NULL_] = {Expressions::Literal, nullptr, Precedence::NONE};
+    rules[TokenType::TRUE] = {Expressions::Literal, nullptr, Precedence::NONE};
+    rules[TokenType::FALSE] = {Expressions::Literal, nullptr, Precedence::NONE};
+    rules[TokenType::IN] = {nullptr, Expressions::Include, Precedence::CALL};
+    rules[TokenType::QUESTION] = {nullptr, Expressions::Ternary, Precedence::TERNARY};
+    rules[TokenType::EQUAL] = {nullptr, Expressions::Assign, Precedence::ASSIGNMENT};
     return rules;
 };
 
 std::vector<std::unique_ptr<AstNode> > Parser::Parse() {
     std::vector<std::unique_ptr<AstNode> > nodes = {};
-    while (!Match(TokenType::TOKEN_TYPE_EOF)) {
+    while (!Match(TokenType::EOF_)) {
         nodes.push_back(Statement());
     }
     return nodes;
@@ -439,29 +443,29 @@ std::unique_ptr<AstNode> Parser::Expression(Precedence start) {
 
 std::unique_ptr<AstNode> Parser::NodeFromType(const Token& token) {
     switch (token.type) {
-        case TokenType::TOKEN_TYPE_I8:
+        case TokenType::I8:
             return AstNode::New(AstNodeType::I8);
-        case TokenType::TOKEN_TYPE_I16:
+        case TokenType::I16:
             return AstNode::New(AstNodeType::I16);
-        case TokenType::TOKEN_TYPE_I32:
+        case TokenType::I32:
             return AstNode::New(AstNodeType::I32);
-        case TokenType::TOKEN_TYPE_I64:
+        case TokenType::I64:
             return AstNode::New(AstNodeType::I64);
-        case TokenType::TOKEN_TYPE_U8:
+        case TokenType::U8:
             return AstNode::New(AstNodeType::U8);
-        case TokenType::TOKEN_TYPE_U16:
+        case TokenType::U16:
             return AstNode::New(AstNodeType::U16);
-        case TokenType::TOKEN_TYPE_U32:
+        case TokenType::U32:
             return AstNode::New(AstNodeType::U32);
-        case TokenType::TOKEN_TYPE_U64:
+        case TokenType::U64:
             return AstNode::New(AstNodeType::U64);
-        case TokenType::TOKEN_TYPE_F32:
+        case TokenType::F32:
             return AstNode::New(AstNodeType::F32);
-        case TokenType::TOKEN_TYPE_F64:
+        case TokenType::F64:
             return AstNode::New(AstNodeType::F64);
-        case TokenType::TOKEN_TYPE_BOOL:
+        case TokenType::BOOL:
             return AstNode::New(AstNodeType::BOOL);
-        case TokenType::TOKEN_TYPE_LET:
+        case TokenType::LET:
             return AstNode::New(AstNodeType::INFER);
         default: {
             Error(token, "Unsupported type");
@@ -471,31 +475,31 @@ std::unique_ptr<AstNode> Parser::NodeFromType(const Token& token) {
 }
 
 std::unique_ptr<AstNode> Parser::BuildType(std::unique_ptr<AstNode> base) {
-    if (Match(TokenType::TOKEN_TYPE_LESS)) {
+    if (Match(TokenType::LESS)) {
         auto size = Expression(Precedence::SHIFT);
-        Consume(TokenType::TOKEN_TYPE_GREATER, "Expected closing '>'");
+        Consume(TokenType::GREATER, "Expected closing '>'");
         auto simd = AstNode::New(AstNodeType::SIMD);
         simd->AddNode(std::move(base));
         simd->AddNode(std::move(size));
         return BuildType(std::move(simd));
     }
-    if (Match(TokenType::TOKEN_TYPE_STAR)) {
+    if (Match(TokenType::STAR)) {
         auto owner = AstNode::New(AstNodeType::OWNER);
         owner->AddNode(std::move(base));
         return BuildType(std::move(owner));
     }
-    if (Match(TokenType::TOKEN_TYPE_AND)) {
+    if (Match(TokenType::AND)) {
         auto borrow = AstNode::New(AstNodeType::BORROW);
         borrow->AddNode(std::move(base));
         return BuildType(std::move(borrow));
     }
-    if (Match(TokenType::TOKEN_TYPE_QUESTION)) {
+    if (Match(TokenType::QUESTION)) {
         auto borrow = AstNode::New(AstNodeType::OPTIONAL);
         borrow->AddNode(std::move(base));
         return BuildType(std::move(borrow));
     }
-    if (Match(TokenType::TOKEN_TYPE_LEFT_BRACKET)) {
-        Consume(TokenType::TOKEN_TYPE_RIGHT_BRACKET, "Expected closing ']'");
+    if (Match(TokenType::LEFT_BRACKET)) {
+        Consume(TokenType::RIGHT_BRACKET, "Expected closing ']'");
         auto dynamic_array = AstNode::New(AstNodeType::ARRAY);
         dynamic_array->AddNode(std::move(base));
         return BuildType(std::move(dynamic_array));
@@ -504,35 +508,54 @@ std::unique_ptr<AstNode> Parser::BuildType(std::unique_ptr<AstNode> base) {
 }
 
 std::unique_ptr<AstNode> Parser::Statement() {
-    if (Match(TokenType::TOKEN_TYPE_MODULE)) {
+    if (Match(TokenType::MODULE)) {
         return ModuleStatement();
     }
     if (MatchType()) {
         return DeclarationStatement();
     }
-    if (Match(TokenType::TOKEN_TYPE_LEFT_BRACE)) {
-        return Block();
+    if (Match(TokenType::LEFT_BRACE)) {
+        return BlockStatement();
     }
-    if (Match(TokenType::TOKEN_TYPE_RETURN)) {
+    if (Match(TokenType::IF)) {
+        return IfStatement();
+    }
+    if (Match(TokenType::RETURN)) {
         return ReturnStatement();
     }
     return ExpressionStatement();
 }
 
+std::unique_ptr<AstNode> Parser::IfStatement() {
+    Consume(TokenType::LEFT_PAREN, "Expected '('");
+    auto condition = Expression();
+    Consume(TokenType::RIGHT_PAREN, "Expected ')'");
+    auto then_branch = Statement();
+
+    auto if_ = AstNode::New(AstNodeType::IF);
+    if_->AddNode(std::move(condition));
+    if_->AddNode(std::move(then_branch));
+    if (Match(TokenType::ELSE)) {
+        auto else_branch = Statement();
+        if_->AddNode(std::move(else_branch));
+    }
+    return if_;
+}
+
 std::unique_ptr<AstNode> Parser::ReturnStatement() {
     auto ret = AstNode::New(AstNodeType::RETURN);
-    if (Match(TokenType::TOKEN_TYPE_SEMICOLON)) {
+    if (Match(TokenType::SEMICOLON)) {
         return ret;
     }
     auto what = Expression();
     ret->AddNode(std::move(what));
-    Consume(TokenType::TOKEN_TYPE_SEMICOLON, "Expected semicolon");
+    Consume(TokenType::SEMICOLON, "Expected semicolon");
     return ret;
 }
 
 std::unique_ptr<AstNode> Parser::ExpressionStatement() {
     auto expression = Expression();
-    Consume(TokenType::TOKEN_TYPE_SEMICOLON, "Expected semicolon");
+    Consume(TokenType::SEMICOLON, "Expected semicolon");
     return expression;
 }
 
@@ -540,7 +563,7 @@ std::unique_ptr<AstNode> Parser::ModuleStatement() {
     auto node = AstNode::New(AstNodeType::MODULE);
     std::unique_ptr<AstNode> name = nullptr;
     do {
-        Consume(TokenType::TOKEN_TYPE_IDENTIFIER, "Expected identifier");
+        Consume(TokenType::IDENTIFIER, "Expected identifier");
         if (!name) {
             name = AstNode::New(AstNodeType::NAME, previous_);
         } else {
@@ -550,9 +573,9 @@ std::unique_ptr<AstNode> Parser::ModuleStatement() {
             name = std::move(get);
         }
     }
-    while (Match(TokenType::TOKEN_TYPE_DOT));
+    while (Match(TokenType::DOT));
 
-    Consume(TokenType::TOKEN_TYPE_SEMICOLON, "Expected semicolon after statement");
+    Consume(TokenType::SEMICOLON, "Expected semicolon after statement");
 
     node->AddNode(std::move(name));
 
@@ -564,10 +587,10 @@ std::unique_ptr<AstNode> Parser::Declaration() {
     auto base_node = NodeFromType(type_token);
     auto type_node = BuildType(std::move(base_node));
 
-    Consume(TokenType::TOKEN_TYPE_IDENTIFIER, "Expected name after definition");
+    Consume(TokenType::IDENTIFIER, "Expected name after definition");
     auto name = AstNode::New(AstNodeType::NAME, previous_);
 
-    if (Match(TokenType::TOKEN_TYPE_LEFT_PAREN)) {
+    if (Match(TokenType::LEFT_PAREN)) {
         auto function = AstNode::New(AstNodeType::FUNCTION);
         function->AddNode(std::move(name));
         function->AddNode(std::move(type_node));
@@ -576,8 +599,8 @@ std::unique_ptr<AstNode> Parser::Declaration() {
                 break;
             function->AddNode(std::move(Declaration()));
         }
-        while (Match(TokenType::TOKEN_TYPE_COMMA));
-        Consume(TokenType::TOKEN_TYPE_RIGHT_PAREN, "Expected ')'");
+        while (Match(TokenType::COMMA));
+        Consume(TokenType::RIGHT_PAREN, "Expected ')'");
 
         return function;
     }
@@ -588,9 +611,9 @@ std::unique_ptr<AstNode> Parser::Declaration() {
     return variable;
 }
 
-std::unique_ptr<AstNode> Parser::Block() {
+std::unique_ptr<AstNode> Parser::BlockStatement() {
     auto sequence = AstNode::New(AstNodeType::SEQUENCE);
-    while (!Match(TokenType::TOKEN_TYPE_RIGHT_BRACE)) {
+    while (!Match(TokenType::RIGHT_BRACE)) {
         sequence->AddNode(Statement());
     }
     return sequence;
@@ -599,10 +622,10 @@ std::unique_ptr<AstNode> Parser::Block() {
 std::unique_ptr<AstNode> Parser::DeclarationStatement() {
     auto definition = Declaration();
     if (definition->type == AstNodeType::VARIABLE) {
-        if (Match(TokenType::TOKEN_TYPE_EQUAL)) {
+        if (Match(TokenType::EQUAL)) {
             definition->AddNode(std::move(Expression()));
         }
-        Consume(TokenType::TOKEN_TYPE_SEMICOLON, "Expected ';'");
+        Consume(TokenType::SEMICOLON, "Expected ';'");
     } else if (definition->type == AstNodeType::FUNCTION) {
         definition->AddNode(Statement());
     }
@@ -618,7 +641,7 @@ Token Parser::Advance() {
     previous_ = current_;
     while (true) {
         current_ = lexer_.Next();
-        if (current_.type != TokenType::TOKEN_TYPE_ERROR)
+        if (current_.type != TokenType::ERROR)
             break;
 
         Error(current_, "Unexpected error");
@@ -637,43 +660,43 @@ bool Parser::Check(TokenType type) const {
 }
 
 bool Parser::CheckType() const {
-    if (Check(TokenType::TOKEN_TYPE_I8)) {
+    if (Check(TokenType::I8)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_I16)) {
+    if (Check(TokenType::I16)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_I32)) {
+    if (Check(TokenType::I32)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_I64)) {
+    if (Check(TokenType::I64)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_U8)) {
+    if (Check(TokenType::U8)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_U16)) {
+    if (Check(TokenType::U16)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_U32)) {
+    if (Check(TokenType::U32)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_U64)) {
+    if (Check(TokenType::U64)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_F32)) {
+    if (Check(TokenType::F32)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_F64)) {
+    if (Check(TokenType::F64)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_BOOL)) {
+    if (Check(TokenType::BOOL)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_STRING)) {
+    if (Check(TokenType::STRING)) {
         return true;
     }
-    if (Check(TokenType::TOKEN_TYPE_LET)) {
+    if (Check(TokenType::LET)) {
         return true;
     }
     return false;

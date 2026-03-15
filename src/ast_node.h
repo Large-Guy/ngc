@@ -34,6 +34,7 @@ enum class AstNodeType {
     F64,
 
     TYPE_COUNT, // used for implicit cast table
+    INFER,
 
     SEQUENCE, // essentially equivalent to a compound statement
 
@@ -47,8 +48,8 @@ enum class AstNodeType {
     
     // statements
     RETURN,
-    INFER, // for infer statements
-    
+    IF,
+
     FLOAT,
     INT,
     TRUE,

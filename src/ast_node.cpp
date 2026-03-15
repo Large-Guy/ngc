@@ -33,6 +33,7 @@ const char* AstNodeTypeToString(AstNodeType e) {
         case AstNodeType::FUNCTION: return "FUNCTION";
         case AstNodeType::VARIABLE: return "VARIABLE";
         case AstNodeType::RETURN: return "RETURN";
+        case AstNodeType::IF: return "IF";
         case AstNodeType::FLOAT: return "FLOAT";
         case AstNodeType::INT: return "INT";
         case AstNodeType::TRUE: return "TRUE";

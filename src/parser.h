@@ -59,6 +59,8 @@ private:
 
     std::unique_ptr<AstNode> Statement();
 
+    std::unique_ptr<AstNode> IfStatement();
+
     std::unique_ptr<AstNode> ReturnStatement();
 
     std::unique_ptr<AstNode> ExpressionStatement();
@@ -67,7 +69,7 @@ private:
 
     std::unique_ptr<AstNode> Declaration();
 
-    std::unique_ptr<AstNode> Block();
+    std::unique_ptr<AstNode> BlockStatement();
 
     std::unique_ptr<AstNode> DeclarationStatement();
 

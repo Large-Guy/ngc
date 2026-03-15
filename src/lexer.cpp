@@ -7,79 +7,79 @@
 std::string TokenTypeToString(TokenType type) {
     switch (type)
     {
-        case TokenType::TOKEN_TYPE_ERROR: return "TOKEN_TYPE_ERROR";
-        case TokenType::TOKEN_TYPE_EOF: return "TOKEN_TYPE_EOF";
-        case TokenType::TOKEN_TYPE_LEFT_PAREN: return "TOKEN_TYPE_LEFT_PAREN";
-        case TokenType::TOKEN_TYPE_RIGHT_PAREN: return "TOKEN_TYPE_RIGHT_PAREN";
-        case TokenType::TOKEN_TYPE_LEFT_BRACE: return "TOKEN_TYPE_LEFT_BRACE";
-        case TokenType::TOKEN_TYPE_RIGHT_BRACE: return "TOKEN_TYPE_RIGHT_BRACE";
-        case TokenType::TOKEN_TYPE_LEFT_BRACKET: return "TOKEN_TYPE_LEFT_BRACKET";
-        case TokenType::TOKEN_TYPE_RIGHT_BRACKET: return "TOKEN_TYPE_RIGHT_BRACKET";
-        case TokenType::TOKEN_TYPE_SEMICOLON: return "TOKEN_TYPE_SEMICOLON";
-        case TokenType::TOKEN_TYPE_DOT: return "TOKEN_TYPE_DOT";
-        case TokenType::TOKEN_TYPE_COMMA: return "TOKEN_TYPE_COMMA";
-        case TokenType::TOKEN_TYPE_PLUS: return "TOKEN_TYPE_PLUS";
-        case TokenType::TOKEN_TYPE_PLUS_PLUS: return "TOKEN_TYPE_PLUS_PLUS";
-        case TokenType::TOKEN_TYPE_PLUS_EQUAL: return "TOKEN_TYPE_PLUS_EQUAL";
-        case TokenType::TOKEN_TYPE_MINUS: return "TOKEN_TYPE_MINUS";
-        case TokenType::TOKEN_TYPE_MINUS_MINUS: return "TOKEN_TYPE_MINUS_MINUS";
-        case TokenType::TOKEN_TYPE_MINUS_EQUAL: return "TOKEN_TYPE_MINUS_EQUAL";
-        case TokenType::TOKEN_TYPE_STAR: return "TOKEN_TYPE_STAR";
-        case TokenType::TOKEN_TYPE_STAR_EQUAL: return "TOKEN_TYPE_STAR_EQUAL";
-        case TokenType::TOKEN_TYPE_SLASH: return "TOKEN_TYPE_SLASH";
-        case TokenType::TOKEN_TYPE_SLASH_EQUAL: return "TOKEN_TYPE_SLASH_EQUAL";
-        case TokenType::TOKEN_TYPE_BANG: return "TOKEN_TYPE_BANG";
-        case TokenType::TOKEN_TYPE_BANG_EQUAL: return "TOKEN_TYPE_BANG_EQUAL";
-        case TokenType::TOKEN_TYPE_EQUAL: return "TOKEN_TYPE_EQUAL";
-        case TokenType::TOKEN_TYPE_EQUAL_EQUAL: return "TOKEN_TYPE_EQUAL_EQUAL";
-        case TokenType::TOKEN_TYPE_GREATER: return "TOKEN_TYPE_GREATER";
-        case TokenType::TOKEN_TYPE_GREATER_EQUAL: return "TOKEN_TYPE_GREATER_EQUAL";
-        case TokenType::TOKEN_TYPE_LESS: return "TOKEN_TYPE_LESS";
-        case TokenType::TOKEN_TYPE_LESS_EQUAL: return "TOKEN_TYPE_LESS_EQUAL";
-        case TokenType::TOKEN_TYPE_COLON: return "TOKEN_TYPE_COLON";
-        case TokenType::TOKEN_TYPE_COLON_COLON: return "TOKEN_TYPE_COLON_COLON";
-        case TokenType::TOKEN_TYPE_TILDE: return "TOKEN_TYPE_TILDE";
-        case TokenType::TOKEN_TYPE_MOVE: return "TOKEN_TYPE_MOVE";
-        case TokenType::TOKEN_TYPE_COPY: return "TOKEN_TYPE_COPY";
-        case TokenType::TOKEN_TYPE_STRING_LITERAL: return "TOKEN_TYPE_STRING_LITERAL";
-        case TokenType::TOKEN_TYPE_INTEGER: return "TOKEN_TYPE_INTEGER";
-        case TokenType::TOKEN_TYPE_FLOAT: return "TOKEN_TYPE_FLOATING";
-        case TokenType::TOKEN_TYPE_IDENTIFIER: return "TOKEN_TYPE_IDENTIFIER";
-        case TokenType::TOKEN_TYPE_MODULE: return "TOKEN_TYPE_MODULE";
-        case TokenType::TOKEN_TYPE_IMPORT: return "TOKEN_TYPE_IMPORT";
-        case TokenType::TOKEN_TYPE_RETURN: return "TOKEN_TYPE_RETURN";
-        case TokenType::TOKEN_TYPE_STRUCT: return "TOKEN_TYPE_STRUCT";
-        case TokenType::TOKEN_TYPE_UNION: return "TOKEN_TYPE_UNION";
-        case TokenType::TOKEN_TYPE_INTERFACE: return "TOKEN_TYPE_INTERFACE";
-        case TokenType::TOKEN_TYPE_STATIC: return "TOKEN_TYPE_STATIC";
-        case TokenType::TOKEN_TYPE_REGION: return "TOKEN_TYPE_REGION";
-        case TokenType::TOKEN_TYPE_CONST: return "TOKEN_TYPE_CONST";
-        case TokenType::TOKEN_TYPE_OPERATOR: return "TOKEN_TYPE_OPERATOR";
-        case TokenType::TOKEN_TYPE_UNIQUE: return "TOKEN_TYPE_UNIQUE";
-        case TokenType::TOKEN_TYPE_SHARED: return "TOKEN_TYPE_SHARED";
-        case TokenType::TOKEN_TYPE_VOID: return "TOKEN_TYPE_VOID";
-        case TokenType::TOKEN_TYPE_I8: return "TOKEN_TYPE_I8";
-        case TokenType::TOKEN_TYPE_I16: return "TOKEN_TYPE_I16";
-        case TokenType::TOKEN_TYPE_I32: return "TOKEN_TYPE_I32";
-        case TokenType::TOKEN_TYPE_I64: return "TOKEN_TYPE_I64";
-        case TokenType::TOKEN_TYPE_U8: return "TOKEN_TYPE_U8";
-        case TokenType::TOKEN_TYPE_U16: return "TOKEN_TYPE_U16";
-        case TokenType::TOKEN_TYPE_U32: return "TOKEN_TYPE_U32";
-        case TokenType::TOKEN_TYPE_U64: return "TOKEN_TYPE_U64";
-        case TokenType::TOKEN_TYPE_F32: return "TOKEN_TYPE_F32";
-        case TokenType::TOKEN_TYPE_F64: return "TOKEN_TYPE_F64";
-        case TokenType::TOKEN_TYPE_ISIZE: return "TOKEN_TYPE_ISIZE";
-        case TokenType::TOKEN_TYPE_USIZE: return "TOKEN_TYPE_USIZE";
-        case TokenType::TOKEN_TYPE_STRING: return "TOKEN_TYPE_STRING";
-        case TokenType::TOKEN_TYPE_LET: return "TOKEN_TYPE_LET";
-        case TokenType::TOKEN_TYPE_NULL: return "TOKEN_TYPE_NULL";
-        case TokenType::TOKEN_TYPE_TRUE: return "TOKEN_TYPE_TRUE";
-        case TokenType::TOKEN_TYPE_FALSE: return "TOKEN_TYPE_FALSE";
-        case TokenType::TOKEN_TYPE_IF: return "TOKEN_TYPE_IF";
-        case TokenType::TOKEN_TYPE_ELSE: return "TOKEN_TYPE_ELSE";
-        case TokenType::TOKEN_TYPE_WHILE: return "TOKEN_TYPE_WHILE";
-        case TokenType::TOKEN_TYPE_DO: return "TOKEN_TYPE_DO";
-        case TokenType::TOKEN_TYPE_FOR: return "TOKEN_TYPE_FOR";
+        case TokenType::ERROR: return "ERROR";
+        case TokenType::EOF_: return "EOF";
+        case TokenType::LEFT_PAREN: return "LEFT_PAREN";
+        case TokenType::RIGHT_PAREN: return "RIGHT_PAREN";
+        case TokenType::LEFT_BRACE: return "LEFT_BRACE";
+        case TokenType::RIGHT_BRACE: return "RIGHT_BRACE";
+        case TokenType::LEFT_BRACKET: return "LEFT_BRACKET";
+        case TokenType::RIGHT_BRACKET: return "RIGHT_BRACKET";
+        case TokenType::SEMICOLON: return "SEMICOLON";
+        case TokenType::DOT: return "DOT";
+        case TokenType::COMMA: return "COMMA";
+        case TokenType::PLUS: return "PLUS";
+        case TokenType::PLUS_PLUS: return "PLUS_PLUS";
+        case TokenType::PLUS_EQUAL: return "PLUS_EQUAL";
+        case TokenType::MINUS: return "MINUS";
+        case TokenType::MINUS_MINUS: return "MINUS_MINUS";
+        case TokenType::MINUS_EQUAL: return "MINUS_EQUAL";
+        case TokenType::STAR: return "STAR";
+        case TokenType::STAR_EQUAL: return "STAR_EQUAL";
+        case TokenType::SLASH: return "SLASH";
+        case TokenType::SLASH_EQUAL: return "SLASH_EQUAL";
+        case TokenType::BANG: return "BANG";
+        case TokenType::BANG_EQUAL: return "BANG_EQUAL";
+        case TokenType::EQUAL: return "EQUAL";
+        case TokenType::EQUAL_EQUAL: return "EQUAL_EQUAL";
+        case TokenType::GREATER: return "GREATER";
+        case TokenType::GREATER_EQUAL: return "GREATER_EQUAL";
+        case TokenType::LESS: return "LESS";
+        case TokenType::LESS_EQUAL: return "LESS_EQUAL";
+        case TokenType::COLON: return "COLON";
+        case TokenType::COLON_COLON: return "COLON_COLON";
+        case TokenType::TILDE: return "TILDE";
+        case TokenType::MOVE: return "MOVE";
+        case TokenType::COPY: return "COPY";
+        case TokenType::STRING_LITERAL: return "STRING_LITERAL";
+        case TokenType::INTEGER: return "INTEGER";
+        case TokenType::FLOAT: return "FLOATING";
+        case TokenType::IDENTIFIER: return "IDENTIFIER";
+        case TokenType::MODULE: return "MODULE";
+        case TokenType::IMPORT: return "IMPORT";
+        case TokenType::RETURN: return "RETURN";
+        case TokenType::STRUCT: return "STRUCT";
+        case TokenType::UNION: return "UNION";
+        case TokenType::INTERFACE: return "INTERFACE";
+        case TokenType::STATIC: return "STATIC";
+        case TokenType::REGION: return "REGION";
+        case TokenType::CONST: return "CONST";
+        case TokenType::OPERATOR: return "OPERATOR";
+        case TokenType::UNIQUE: return "UNIQUE";
+        case TokenType::SHARED: return "SHARED";
+        case TokenType::VOID: return "VOID";
+        case TokenType::I8: return "I8";
+        case TokenType::I16: return "I16";
+        case TokenType::I32: return "I32";
+        case TokenType::I64: return "I64";
+        case TokenType::U8: return "U8";
+        case TokenType::U16: return "U16";
+        case TokenType::U32: return "U32";
+        case TokenType::U64: return "U64";
+        case TokenType::F32: return "F32";
+        case TokenType::F64: return "F64";
+        case TokenType::ISIZE: return "ISIZE";
+        case TokenType::USIZE: return "USIZE";
+        case TokenType::STRING: return "STRING";
+        case TokenType::LET: return "LET";
+        case TokenType::NULL_: return "NULL";
+        case TokenType::TRUE: return "TRUE";
+        case TokenType::FALSE: return "FALSE";
+        case TokenType::IF: return "IF";
+        case TokenType::ELSE: return "ELSE";
+        case TokenType::WHILE: return "WHILE";
+        case TokenType::DO: return "DO";
+        case TokenType::FOR: return "FOR";
         default: return "unknown";
     }
 }
@@ -113,7 +113,7 @@ Token Lexer::Next() {
     start_ = current_;
 
     if (End())
-        return New(TokenType::TOKEN_TYPE_EOF);
+        return New(TokenType::EOF_);
 
     char c = Advance();
 
@@ -129,65 +129,65 @@ Token Lexer::Next() {
         case '"': return String();
         case '\'': return Character();
 
-        case '(': return New(TokenType::TOKEN_TYPE_LEFT_PAREN);
-        case ')': return New(TokenType::TOKEN_TYPE_RIGHT_PAREN);
-        case '{': return New(TokenType::TOKEN_TYPE_LEFT_BRACE);
-        case '}': return New(TokenType::TOKEN_TYPE_RIGHT_BRACE);
-        case '[': return New(TokenType::TOKEN_TYPE_LEFT_BRACKET);
-        case ']': return New(TokenType::TOKEN_TYPE_RIGHT_BRACKET);
-        case ';': return New(TokenType::TOKEN_TYPE_SEMICOLON);
-        case '.': return New(TokenType::TOKEN_TYPE_DOT);
-        case ',': return New(TokenType::TOKEN_TYPE_COMMA);
+        case '(': return New(TokenType::LEFT_PAREN);
+        case ')': return New(TokenType::RIGHT_PAREN);
+        case '{': return New(TokenType::LEFT_BRACE);
+        case '}': return New(TokenType::RIGHT_BRACE);
+        case '[': return New(TokenType::LEFT_BRACKET);
+        case ']': return New(TokenType::RIGHT_BRACKET);
+        case ';': return New(TokenType::SEMICOLON);
+        case '.': return New(TokenType::DOT);
+        case ',': return New(TokenType::COMMA);
 
-        case ':': return New(Match(':') ? TokenType::TOKEN_TYPE_COLON_COLON : TokenType::TOKEN_TYPE_COLON);
+        case ':': return New(Match(':') ? TokenType::COLON_COLON : TokenType::COLON);
         case '+': return New(Match('=')
-                                 ? TokenType::TOKEN_TYPE_PLUS_EQUAL
+                                 ? TokenType::PLUS_EQUAL
                                  : Match('+')
-                                       ? TokenType::TOKEN_TYPE_PLUS_PLUS
-                                       : TokenType::TOKEN_TYPE_PLUS);
+                                       ? TokenType::PLUS_PLUS
+                                       : TokenType::PLUS);
         case '-': return New(Match('=')
-                                 ? TokenType::TOKEN_TYPE_MINUS_EQUAL
+                                 ? TokenType::MINUS_EQUAL
                                  : Match('-')
-                                       ? TokenType::TOKEN_TYPE_MINUS_MINUS
-                                       : TokenType::TOKEN_TYPE_MINUS);
+                                       ? TokenType::MINUS_MINUS
+                                       : TokenType::MINUS);
         case '*': return New(Match('=')
-                                 ? TokenType::TOKEN_TYPE_STAR_EQUAL
+                                 ? TokenType::STAR_EQUAL
                                  : Match('*')
-                                       ? TokenType::TOKEN_TYPE_STAR_STAR
-                                       : TokenType::TOKEN_TYPE_STAR);
-        case '?': return New(TokenType::TOKEN_TYPE_QUESTION);
-        case '%': return New(Match('=') ? TokenType::TOKEN_TYPE_PERCENT_EQUAL : TokenType::TOKEN_TYPE_PERCENT);
-        case '/': return New(Match('=') ? TokenType::TOKEN_TYPE_SLASH_EQUAL : TokenType::TOKEN_TYPE_SLASH);
-        case '^': return New(Match('=') ? TokenType::TOKEN_TYPE_CARET_EQUAL : TokenType::TOKEN_TYPE_CARET);
-        case '=': return New(Match('=') ? TokenType::TOKEN_TYPE_EQUAL_EQUAL : TokenType::TOKEN_TYPE_EQUAL);
-        case '!': return New(Match('=') ? TokenType::TOKEN_TYPE_BANG_EQUAL : TokenType::TOKEN_TYPE_BANG);
+                                       ? TokenType::STAR_STAR
+                                       : TokenType::STAR);
+        case '?': return New(TokenType::QUESTION);
+        case '%': return New(Match('=') ? TokenType::PERCENT_EQUAL : TokenType::PERCENT);
+        case '/': return New(Match('=') ? TokenType::SLASH_EQUAL : TokenType::SLASH);
+        case '^': return New(Match('=') ? TokenType::CARET_EQUAL : TokenType::CARET);
+        case '=': return New(Match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
+        case '!': return New(Match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
         case '<': return New(Match('=')
-                                 ? TokenType::TOKEN_TYPE_LESS_EQUAL
+                                 ? TokenType::LESS_EQUAL
                                  : Match('<')
-                                       ? TokenType::TOKEN_TYPE_LESS_LESS
-                                       : TokenType::TOKEN_TYPE_LESS);
+                                       ? TokenType::LESS_LESS
+                                       : TokenType::LESS);
         case '>': return New(Match('=')
-                                 ? TokenType::TOKEN_TYPE_GREATER_EQUAL
+                                 ? TokenType::GREATER_EQUAL
                                  : Match('>')
-                                       ? TokenType::TOKEN_TYPE_GREATER_GREATER
-                                       : TokenType::TOKEN_TYPE_GREATER);
-        case '~': return New(Match('=') ? TokenType::TOKEN_TYPE_TILDE_EQUAL : TokenType::TOKEN_TYPE_TILDE);
+                                       ? TokenType::GREATER_GREATER
+                                       : TokenType::GREATER);
+        case '~': return New(Match('=') ? TokenType::TILDE_EQUAL : TokenType::TILDE);
 
         case '&': return New(Match('&')
-                                 ? TokenType::TOKEN_TYPE_AND_AND
+                                 ? TokenType::AND_AND
                                  : Match('=')
-                                       ? TokenType::TOKEN_TYPE_AND_EQUAL
-                                       : TokenType::TOKEN_TYPE_AND);
+                                       ? TokenType::AND_EQUAL
+                                       : TokenType::AND);
         case '|': return New(Match('|')
-                                 ? TokenType::TOKEN_TYPE_PIPE_PIPE
+                                 ? TokenType::PIPE_PIPE
                                  : Match('=')
-                                       ? TokenType::TOKEN_TYPE_PIPE_EQUAL
-                                       : TokenType::TOKEN_TYPE_PIPE);
+                                       ? TokenType::PIPE_EQUAL
+                                       : TokenType::PIPE);
         default:
             break;
     }
 
-    return New(TokenType::TOKEN_TYPE_ERROR);
+    return New(TokenType::ERROR);
 }
 
 bool Lexer::End() {
@@ -272,15 +272,15 @@ Token Lexer::String() {
         Advance();
     }
     if (End())
-        return New(TokenType::TOKEN_TYPE_ERROR);
+        return New(TokenType::ERROR);
     Advance();
-    return New(TokenType::TOKEN_TYPE_STRING_LITERAL);
+    return New(TokenType::STRING_LITERAL);
 }
 
 Token Lexer::Character() {
     Advance();
     Match('\'');
-    return New(TokenType::TOKEN_TYPE_CHARACTER);
+    return New(TokenType::CHARACTER);
 }
 
 Token Lexer::Number() {
@@ -303,7 +303,7 @@ Token Lexer::Number() {
         Advance();
     }
 
-    return New(floating ? TokenType::TOKEN_TYPE_FLOAT : TokenType::TOKEN_TYPE_INTEGER);
+    return New(floating ? TokenType::FLOAT : TokenType::INTEGER);
 }
 
 TokenType Lexer::Keyword(uint32_t start, std::string remainder, TokenType type) {
@@ -311,7 +311,7 @@ TokenType Lexer::Keyword(uint32_t start, std::string remainder, TokenType type) 
     if (current_ - start_ == start + remainder.size() && source_.substr(start_ + start, remainder.size()) == remainder) {
         return type;
     }
-    return TokenType::TOKEN_TYPE_IDENTIFIER;
+    return TokenType::IDENTIFIER;
 }
 
 TokenType Lexer::Type() {
@@ -322,35 +322,35 @@ TokenType Lexer::Type() {
                 {
                     switch (View(2))
                     {
-                        case 'g': return Keyword(3, "ion", TokenType::TOKEN_TYPE_REGION);
-                        case 't': return Keyword(3, "urn", TokenType::TOKEN_TYPE_RETURN);
+                        case 'g': return Keyword(3, "ion", TokenType::REGION);
+                        case 't': return Keyword(3, "urn", TokenType::RETURN);
                         default: break;
                     }
                 }
                 break;
             }
-        case 'v': return Keyword(1, "oid", TokenType::TOKEN_TYPE_VOID);
+        case 'v': return Keyword(1, "oid", TokenType::VOID);
         case 'i':
             {
                 if (current_ - start_ > 1)
                 {
                     switch (View(1))
                     {
-                        case '8': return Keyword(2, "", TokenType::TOKEN_TYPE_I8);
-                        case '1': return Keyword(2, "6", TokenType::TOKEN_TYPE_I16);
-                        case '3': return Keyword(2, "2", TokenType::TOKEN_TYPE_I32);
-                        case '6': return Keyword(2, "4", TokenType::TOKEN_TYPE_I64);
-                        case 's': return Keyword(2, "ize", TokenType::TOKEN_TYPE_ISIZE);
-                        case 'm': return Keyword(2, "port", TokenType::TOKEN_TYPE_IMPORT);
-                        case 'f': return Keyword(2, "", TokenType::TOKEN_TYPE_IF);
+                        case '8': return Keyword(2, "", TokenType::I8);
+                        case '1': return Keyword(2, "6", TokenType::I16);
+                        case '3': return Keyword(2, "2", TokenType::I32);
+                        case '6': return Keyword(2, "4", TokenType::I64);
+                        case 's': return Keyword(2, "ize", TokenType::ISIZE);
+                        case 'm': return Keyword(2, "port", TokenType::IMPORT);
+                        case 'f': return Keyword(2, "", TokenType::IF);
                         case 'n': {
                             if (current_ - start_ > 2) {
                                 switch (View(2)) {
-                                    case 't': return Keyword(3, "erface", TokenType::TOKEN_TYPE_INTERFACE);
+                                    case 't': return Keyword(3, "erface", TokenType::INTERFACE);
                                 }
                             }
                             else {
-                                return TokenType::TOKEN_TYPE_IN;
+                                return TokenType::IN;
                             }
                         }
                         default: break;
@@ -364,12 +364,12 @@ TokenType Lexer::Type() {
                 {
                     switch (View(1))
                     {
-                        case '8': return Keyword(2, "", TokenType::TOKEN_TYPE_U8);
-                        case '1': return Keyword(2, "6", TokenType::TOKEN_TYPE_U16);
-                        case '3': return Keyword(2, "2", TokenType::TOKEN_TYPE_U32);
-                        case '6': return Keyword(2, "4", TokenType::TOKEN_TYPE_U64);
-                        case 's': return Keyword(2, "ize", TokenType::TOKEN_TYPE_USIZE);
-                        case 'n': return Keyword(2, "ion", TokenType::TOKEN_TYPE_UNION);
+                        case '8': return Keyword(2, "", TokenType::U8);
+                        case '1': return Keyword(2, "6", TokenType::U16);
+                        case '3': return Keyword(2, "2", TokenType::U32);
+                        case '6': return Keyword(2, "4", TokenType::U64);
+                        case 's': return Keyword(2, "ize", TokenType::USIZE);
+                        case 'n': return Keyword(2, "ion", TokenType::UNION);
                         default: break;
                     }
                 }
@@ -387,14 +387,14 @@ TokenType Lexer::Type() {
                                 {
                                     switch (View(3))
                                     {
-                                        case 'i': return Keyword(4, "ng", TokenType::TOKEN_TYPE_STRING);
-                                        case 'u': return Keyword(4, "ct", TokenType::TOKEN_TYPE_STRUCT);
+                                        case 'i': return Keyword(4, "ng", TokenType::STRING);
+                                        case 'u': return Keyword(4, "ct", TokenType::STRUCT);
                                         default: break;
                                     }
                                 }
                                 break;
                             }
-                        case 'a': return Keyword(3, "tic", TokenType::TOKEN_TYPE_STATIC);
+                        case 'a': return Keyword(3, "tic", TokenType::STATIC);
                         default: break;
                     }
                 }
@@ -406,8 +406,8 @@ TokenType Lexer::Type() {
                 {
                     switch (View(2))
                     {
-                        case 'v': return Keyword(3, "e", TokenType::TOKEN_TYPE_MOVE);
-                        case 'd': return Keyword(3, "ule", TokenType::TOKEN_TYPE_MODULE);
+                        case 'v': return Keyword(3, "e", TokenType::MOVE);
+                        case 'd': return Keyword(3, "ule", TokenType::MODULE);
                         default: break;
                     }
                 }
@@ -419,38 +419,38 @@ TokenType Lexer::Type() {
                 {
                     switch (View(2))
                     {
-                        case 'p': return Keyword(3, "y", TokenType::TOKEN_TYPE_COPY);
-                        case 'n': return Keyword(3, "st", TokenType::TOKEN_TYPE_CONST);
+                        case 'p': return Keyword(3, "y", TokenType::COPY);
+                        case 'n': return Keyword(3, "st", TokenType::CONST);
                         default: break;
                     }
                 }
                 break;
             }
-        case 'n': return Keyword(1, "ull", TokenType::TOKEN_TYPE_NULL);
-        case 't': return Keyword(1, "rue", TokenType::TOKEN_TYPE_TRUE);
+        case 'n': return Keyword(1, "ull", TokenType::NULL_);
+        case 't': return Keyword(1, "rue", TokenType::TRUE);
         case 'f':
             {
                 if (current_ - start_ > 1)
                 {
                     switch (View(1))
                     {
-                        case 'a': return Keyword(2, "lse", TokenType::TOKEN_TYPE_FALSE);
-                        case 'o': return Keyword(2, "r", TokenType::TOKEN_TYPE_FOR);
-                        case '3': return Keyword(2, "2", TokenType::TOKEN_TYPE_F32);
-                        case '6': return Keyword(2, "4", TokenType::TOKEN_TYPE_F64);
+                        case 'a': return Keyword(2, "lse", TokenType::FALSE);
+                        case 'o': return Keyword(2, "r", TokenType::FOR);
+                        case '3': return Keyword(2, "2", TokenType::F32);
+                        case '6': return Keyword(2, "4", TokenType::F64);
                         default: break;
                     }
                 }
             }
-        case 'e': return Keyword(1, "lse", TokenType::TOKEN_TYPE_ELSE);
-        case 'w': return Keyword(1, "hile", TokenType::TOKEN_TYPE_WHILE);
-        case 'd': return Keyword(1, "o", TokenType::TOKEN_TYPE_DO);
-        case 'o': return Keyword(1, "perator", TokenType::TOKEN_TYPE_OPERATOR);
-        case 'l': return Keyword(1, "et", TokenType::TOKEN_TYPE_LET);
-        case 'b': return Keyword(1, "ool", TokenType::TOKEN_TYPE_BOOL);
+        case 'e': return Keyword(1, "lse", TokenType::ELSE);
+        case 'w': return Keyword(1, "hile", TokenType::WHILE);
+        case 'd': return Keyword(1, "o", TokenType::DO);
+        case 'o': return Keyword(1, "perator", TokenType::OPERATOR);
+        case 'l': return Keyword(1, "et", TokenType::LET);
+        case 'b': return Keyword(1, "ool", TokenType::BOOL);
         default: break;
     }
-    return TokenType::TOKEN_TYPE_IDENTIFIER;
+    return TokenType::IDENTIFIER;
 }
 
 Token Lexer::Identifier() {
