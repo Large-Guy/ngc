@@ -20,6 +20,7 @@ enum class TokenType {
     RIGHT_BRACKET,
     SEMICOLON,
     DOT,
+    DOT_DOT,
     COMMA,
     PLUS,
     PLUS_PLUS,
@@ -129,7 +130,7 @@ enum class TokenType {
     DO,
     FOR,
 
-    COUNT
+    COUNT,
 };
 
 std::string TokenTypeToString(TokenType type);

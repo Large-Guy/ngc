@@ -93,8 +93,28 @@ public:
         }
     }
 
-    static std::unique_ptr<AstNode> Cast(Parser& parser, bool canAssign) {
+    static std::unique_ptr<AstNode> CastOrLambda(Parser& parser, bool canAssign) {
         auto type = parser.BuildType(parser.NodeFromType(parser.previous_));
+        if (parser.Match(TokenType::LEFT_PAREN)) {
+            //lambda
+            auto function = AstNode::New(AstNodeType::LAMBDA);
+            function->AddNode(std::move(type));
+
+            if (!parser.Check(TokenType::RIGHT_PAREN)) {
+                do {
+                    auto argument = parser.Expression();
+                    function->AddNode(std::move(argument));
+                } while (parser.Check(TokenType::COMMA));
+            }
+
+            parser.Consume(TokenType::RIGHT_PAREN, "Expected ')'");
+
+            auto body = parser.Statement();
+            function->AddNode(std::move(body));
+
+            return function;
+        }
+
         std::unique_ptr<AstNode> cast;
         if (parser.Match(TokenType::BANG)) {
             cast = AstNode::New(AstNodeType::REINTERPRET);
@@ -102,10 +122,8 @@ public:
         else {
             cast = AstNode::New(AstNodeType::CAST);
         }
-        parser.Consume(TokenType::LEFT_PAREN, "Expected opening '('");
         cast->AddNode(std::move(type));
         cast->AddNode(parser.Expression());
-        parser.Consume(TokenType::RIGHT_PAREN, "Expected closing ')'");
 
         return cast;
     }
@@ -312,7 +330,7 @@ public:
             do {
                 auto argument = parser.Expression();
                 node->AddNode(std::move(argument));
-            } while (parser.Check(TokenType::COMMA));
+            } while (parser.Match(TokenType::COMMA));
         }
 
         parser.Consume(TokenType::RIGHT_PAREN, "Expected closing ')'");
@@ -342,6 +360,14 @@ public:
 
     static std::unique_ptr<AstNode> Ternary(Parser& parser, std::unique_ptr<AstNode> left, bool canAssign) {
     }
+
+    static std::unique_ptr<AstNode> Sequence(Parser& parser, std::unique_ptr<AstNode> left, bool canAssign) {
+        auto node = AstNode::New(AstNodeType::SEQUENCE);
+        node->AddNode(std::move(left));
+        auto sequence = parser.Expression();
+        node->AddNode(std::move(sequence));
+        return node;
+    }
 };
 
 std::unordered_map<TokenType, Parser::ParseRule> Parser::BuildRules() {
@@ -350,6 +376,7 @@ std::unordered_map<TokenType, Parser::ParseRule> Parser::BuildRules() {
     rules[TokenType::LEFT_BRACKET] = {Expressions::Heap, Expressions::Index, Precedence::CALL};
     rules[TokenType::LEFT_BRACE] = {nullptr, Expressions::Interval, Precedence::CALL};
     rules[TokenType::DOT] = {nullptr, Expressions::Field, Precedence::CALL};
+    rules[TokenType::DOT_DOT] = {nullptr, Expressions::Sequence, Precedence::CALL};
     rules[TokenType::PLUS] = {nullptr, Expressions::Binary, Precedence::TERM};
     rules[TokenType::MINUS] = {Expressions::Unary, Expressions::Binary, Precedence::TERM};
     rules[TokenType::STAR] = {Expressions::Unary, Expressions::Binary, Precedence::FACTOR};
@@ -377,19 +404,19 @@ std::unordered_map<TokenType, Parser::ParseRule> Parser::BuildRules() {
     rules[TokenType::INTEGER] = {Expressions::Number, nullptr, Precedence::NONE};
     rules[TokenType::FLOAT] = {Expressions::Number, nullptr, Precedence::NONE};
     rules[TokenType::IDENTIFIER] = {Expressions::Variable, nullptr, Precedence::NONE};
-    rules[TokenType::I8] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::I16] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::I32] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::I64] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::U8] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::U16] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::U32] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::U64] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::F32] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::F64] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::ISIZE] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::USIZE] = {Expressions::Cast, nullptr, Precedence::UNARY};
-    rules[TokenType::BOOL] = {Expressions::Cast, nullptr, Precedence::UNARY};
+    rules[TokenType::I8] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::I16] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::I32] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::I64] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::U8] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::U16] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::U32] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::U64] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::F32] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::F64] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::ISIZE] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::USIZE] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
+    rules[TokenType::BOOL] = {Expressions::CastOrLambda, nullptr, Precedence::UNARY};
     rules[TokenType::NULL_] = {Expressions::Literal, nullptr, Precedence::NONE};
     rules[TokenType::TRUE] = {Expressions::Literal, nullptr, Precedence::NONE};
     rules[TokenType::FALSE] = {Expressions::Literal, nullptr, Precedence::NONE};
@@ -418,7 +445,7 @@ std::unique_ptr<AstNode> Parser::ParsePrecedence(Precedence precedence) {
     Advance();
     auto prefix = Rule(previous_.type).prefix;
     if (prefix == nullptr) {
-        Error(previous_, "Expected type");
+        Error(previous_, "Expected valid prefix");
         return nullptr;
     }
 
@@ -520,10 +547,61 @@ std::unique_ptr<AstNode> Parser::Statement() {
     if (Match(TokenType::IF)) {
         return IfStatement();
     }
+    if (Match(TokenType::WHILE)) {
+        return WhileStatement();
+    }
+    if (Match(TokenType::DO)) {
+        return DoWhileStatement();
+    }
+    if (Match(TokenType::FOR)) {
+        return ForStatement();
+    }
     if (Match(TokenType::RETURN)) {
         return ReturnStatement();
     }
     return ExpressionStatement();
+}
+
+std::unique_ptr<AstNode> Parser::WhileStatement() {
+    Consume(TokenType::LEFT_PAREN, "Expected '('");
+    auto condition = Expression();
+    Consume(TokenType::RIGHT_PAREN, "Expected ')'");
+    auto body = Statement();
+
+    auto while_ = AstNode::New(AstNodeType::WHILE);
+    while_->AddNode(std::move(condition));
+    while_->AddNode(std::move(body));
+    return while_;
+}
+
+std::unique_ptr<AstNode> Parser::DoWhileStatement() {
+    auto body = Statement();
+    Consume(TokenType::WHILE, "Expected 'while'");
+
+    Consume(TokenType::LEFT_PAREN, "Expected '('");
+    auto condition = Expression();
+    Consume(TokenType::RIGHT_PAREN, "Expected ')'");
+
+    auto do_while = AstNode::New(AstNodeType::DO);
+    do_while->AddNode(std::move(condition));
+    do_while->AddNode(std::move(body));
+    return do_while;
+}
+
+std::unique_ptr<AstNode> Parser::ForStatement() {
+    Consume(TokenType::LEFT_PAREN, "Expected '('");
+    auto for_ = AstNode::New(AstNodeType::FOR);
+    auto initializer = Statement();
+    auto condition = Statement();
+    auto increment = Expression();
+    Consume(TokenType::RIGHT_PAREN, "Expected ')'");
+    auto body = Statement();
+
+    for_->AddNode(std::move(initializer));
+    for_->AddNode(std::move(condition));
+    for_->AddNode(std::move(increment));
+    for_->AddNode(std::move(body));
+    return for_;
 }
 
 std::unique_ptr<AstNode> Parser::IfStatement() {
@@ -594,12 +672,15 @@ std::unique_ptr<AstNode> Parser::Declaration() {
         auto function = AstNode::New(AstNodeType::FUNCTION);
         function->AddNode(std::move(name));
         function->AddNode(std::move(type_node));
-        do {
-            if (!MatchType())
-                break;
-            function->AddNode(std::move(Declaration()));
+
+        if (!Check(TokenType::RIGHT_PAREN)) {
+            do {
+                if (!MatchType())
+                    Error(current_, "Expected type");
+                function->AddNode(std::move(Declaration()));
+            } while (Match(TokenType::COMMA));
         }
-        while (Match(TokenType::COMMA));
+
         Consume(TokenType::RIGHT_PAREN, "Expected ')'");
 
         return function;
@@ -612,7 +693,7 @@ std::unique_ptr<AstNode> Parser::Declaration() {
 }
 
 std::unique_ptr<AstNode> Parser::BlockStatement() {
-    auto sequence = AstNode::New(AstNodeType::SEQUENCE);
+    auto sequence = AstNode::New(AstNodeType::GROUP);
     while (!Match(TokenType::RIGHT_BRACE)) {
         sequence->AddNode(Statement());
     }

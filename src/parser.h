@@ -57,7 +57,15 @@ private:
 
     // Statements
 
+
+
     std::unique_ptr<AstNode> Statement();
+
+    std::unique_ptr<AstNode> WhileStatement();
+
+    std::unique_ptr<AstNode> DoWhileStatement();
+
+    std::unique_ptr<AstNode> ForStatement();
 
     std::unique_ptr<AstNode> IfStatement();
 

@@ -36,7 +36,7 @@ enum class AstNodeType {
     TYPE_COUNT, // used for implicit cast table
     INFER,
 
-    SEQUENCE, // essentially equivalent to a compound statement
+    GROUP, // essentially equivalent to a compound statement
 
     NAME,
 
@@ -88,10 +88,16 @@ enum class AstNodeType {
     REINTERPRET,
     HEAP,
 
+    CONTAINS,
+    SEQUENCE,
+
     LIST,
     INDEX,
     CALL,
-    CONTAINS,
+    WHILE,
+    FOR,
+    DO,
+    LAMBDA,
 };
 
 const char* AstNodeTypeToString(AstNodeType e);

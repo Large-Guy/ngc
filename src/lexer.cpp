@@ -136,7 +136,7 @@ Token Lexer::Next() {
         case '[': return New(TokenType::LEFT_BRACKET);
         case ']': return New(TokenType::RIGHT_BRACKET);
         case ';': return New(TokenType::SEMICOLON);
-        case '.': return New(TokenType::DOT);
+        case '.': return New(Match('.') ? TokenType::DOT_DOT : TokenType::DOT);
         case ',': return New(TokenType::COMMA);
 
         case ':': return New(Match(':') ? TokenType::COLON_COLON : TokenType::COLON);

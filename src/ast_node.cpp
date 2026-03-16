@@ -26,6 +26,7 @@ const char* AstNodeTypeToString(AstNodeType e) {
         case AstNodeType::F64: return "F64";
         case AstNodeType::TYPE_COUNT: return "TYPE_COUNT";
         case AstNodeType::INFER: return "INFER";
+        case AstNodeType::GROUP: return "GROUP";
         case AstNodeType::SEQUENCE: return "SEQUENCE";
         case AstNodeType::NAME: return "NAME";
         case AstNodeType::MODULE: return "MODULE";
@@ -34,6 +35,8 @@ const char* AstNodeTypeToString(AstNodeType e) {
         case AstNodeType::VARIABLE: return "VARIABLE";
         case AstNodeType::RETURN: return "RETURN";
         case AstNodeType::IF: return "IF";
+        case AstNodeType::WHILE: return "WHILE";
+        case AstNodeType::FOR: return "FOR";
         case AstNodeType::FLOAT: return "FLOAT";
         case AstNodeType::INT: return "INT";
         case AstNodeType::TRUE: return "TRUE";
@@ -75,6 +78,11 @@ const char* AstNodeTypeToString(AstNodeType e) {
 
         case AstNodeType::INDEX: return "INDEX";
         case AstNodeType::CALL: return "CALL";
+
+        case AstNodeType::DO: return "DO";
+        case AstNodeType::CONTAINS: return "CONTAINS";
+        case AstNodeType::LAMBDA: return "LAMBDA";
+
             
         default: return "unknown";
     }
