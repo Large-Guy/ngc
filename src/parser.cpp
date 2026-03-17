@@ -476,6 +476,8 @@ std::unique_ptr<AstNode> Parser::Expression(Precedence start) {
 
 std::unique_ptr<AstNode> Parser::NodeFromType(const Token& token) {
     switch (token.type) {
+        case TokenType::VOID:
+            return AstNode::New(AstNodeType::VOID);
         case TokenType::I8:
             return AstNode::New(AstNodeType::I8);
         case TokenType::I16:
@@ -747,6 +749,9 @@ bool Parser::Check(TokenType type) const {
 }
 
 bool Parser::CheckType() const {
+    if (Check(TokenType::VOID)) {
+        return true;
+    }
     if (Check(TokenType::I8)) {
         return true;
     }

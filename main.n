@@ -1,6 +1,5 @@
 module program;
 
-i32 main()
+void main(i32 a, i32 b)
 {
-    return 0;
 }
