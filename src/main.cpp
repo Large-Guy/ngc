@@ -3,6 +3,7 @@
 
 #include "lexer.h"
 #include "parser.h"
+#include "backends/llvm_backend.h"
 
 int main() {
     std::string path = "main.n";
@@ -24,9 +25,9 @@ int main() {
         //node->Debug();
     }
 
-    //LlvmBackend backend = {};
+    LLVMBackend backend = {};
 
-    //backend.Generate(std::move(nodes));
+    backend.Generate(std::move(nodes));
 
     return 0;
 }

@@ -70,6 +70,8 @@ add_executable(ngc src/main.cpp
         src/ast/nodes/for_node.h
         src/ast/nodes/do_while_node.cpp
         src/ast/nodes/do_while_node.h
+        src/backends/llvm_backend.cpp
+        src/backends/llvm_backend.h
 )
 
 find_package(LLVM 18.1.8 REQUIRED CONFIG)
