@@ -1,7 +1,7 @@
 module program;
 
-void main()
+i32 main()
 {
-    i32 a;
-    return;
+    i32 a = 64;
+    return a;
 }

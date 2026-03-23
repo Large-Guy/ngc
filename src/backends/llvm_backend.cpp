@@ -2,10 +2,12 @@
 
 #include <iostream>
 
+#include "../ast/nodes/assign_node.h"
 #include "../ast/nodes/binary_node.h"
 #include "../ast/nodes/compound_statement.h"
 #include "../ast/nodes/float_node.h"
 #include "../ast/nodes/function_node.h"
+#include "../ast/nodes/identifier_node.h"
 #include "../ast/nodes/integer_node.h"
 #include "../ast/nodes/module_node.h"
 #include "../ast/nodes/return_node.h"
@@ -80,16 +82,51 @@ Type *LLVMBackend::GenerateType(TypeNode *type) {
     }
 }
 
-Value *LLVMBackend::GenerateExpression(ExpressionNode *get) {
+Value *LLVMBackend::GenerateRValue(AstNode *get) {
+    if (auto compound = is<CompoundStatement>(get)) {
+        scope_.PushScope();
+        Value* last = nullptr;
+        for (const auto &statement: compound->statements) {
+            last = GenerateRValue(statement.get());
+        }
+        scope_.PopScope();
+        return last;
+    }
+    if (auto variable = is<VariableNode>(get)) {
+        auto* type = GenerateType(variable->type.get());
+        auto* var = builder_->CreateAlloca(type, nullptr, variable->name);
+        builder_->CreateStore(variable->value ? GenerateRValue(variable->value.get()) : ConstantAggregateZero::get(type), var);
+        scope_.Declare(variable->name, var, variable->type.get());
+        return var;
+    }
+    if (auto return_statement = is<ReturnNode>(get)) {
+        if (return_statement->value == nullptr) {
+            builder_->CreateRetVoid();
+            return nullptr;
+        }
+        builder_->CreateRet(GenerateRValue(return_statement->value.get()));
+        return nullptr;
+    }
     if (const auto integer = is<IntegerNode>(get)) {
         return ConstantInt::get(*context_, APInt(64, integer->value, false));
     }
     if (const auto floating = is<FloatNode>(get)) {
         return ConstantFP::get(*context_, APFloat(floating->value));
     }
+    if (const auto variable = is<IdentifierNode>(get)) {
+        auto var = scope_.Lookup(variable->identifier);
+        auto type = scope_.Type(variable->identifier);
+        return builder_->CreateLoad(GenerateType(type), var);
+    }
+    if (const auto assign = is<AssignNode>(get)) {
+        auto target = GenerateLValue(assign->target.get());
+        auto value = GenerateRValue(assign->value.get());
+        builder_->CreateStore(value, target);
+        return value;
+    }
     if (const auto binary = is<BinaryNode>(get)) {
-        auto left = GenerateExpression(binary->left.get());
-        auto right = GenerateExpression(binary->right.get());
+        auto left = GenerateRValue(binary->left.get());
+        auto right = GenerateRValue(binary->right.get());
         if (left->getType()->isFloatTy() || right->getType()->isFloatTy()) {
             throw std::runtime_error("Floats are not supported");
         }
@@ -140,22 +177,13 @@ Value *LLVMBackend::GenerateExpression(ExpressionNode *get) {
     throw std::runtime_error("Unsupported expression type");
 }
 
-void LLVMBackend::GenerateStatement(StatementNode *get) {
-    if (auto compound = is<CompoundStatement>(get)) {
-        for (const auto &statement: compound->statements) {
-            GenerateStatement(statement.get());
-        }
-    } else if (auto variable = is<VariableNode>(get)) {
-        auto* type = GenerateType(variable->type.get());
-        auto* var = builder_->CreateAlloca(type, nullptr, variable->name);
-        builder_->CreateStore(variable->value ? GenerateExpression(variable->value.get()) : ConstantAggregateZero::get(type), var);
-    } else if (auto return_statement = is<ReturnNode>(get)) {
-        if (return_statement->value == nullptr) {
-            builder_->CreateRetVoid();
-            return;
-        }
-        builder_->CreateRet(GenerateExpression(return_statement->value.get()));
+Value * LLVMBackend::GenerateLValue(AstNode *get) {
+    if (const auto variable = is<IdentifierNode>(get)) {
+        auto var = scope_.Lookup(variable->identifier);
+        auto type = scope_.Type(variable->identifier);
+        return var;
     }
+    throw std::runtime_error("Unsupported expression type");
 }
 
 void LLVMBackend::GenerateFunction(FunctionNode *function) {
@@ -185,5 +213,5 @@ void LLVMBackend::GenerateFunction(FunctionNode *function) {
     block_ = BasicBlock::Create(*context_, "entry", func);
     builder_->SetInsertPoint(block_);
 
-    GenerateStatement(function->body.get());
+    GenerateRValue(function->body.get());
 }

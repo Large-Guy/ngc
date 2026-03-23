@@ -15,10 +15,7 @@ public:
 protected:
     template<typename T, typename U>
     static constexpr T* is(U* object) {
-        if (typeid(*object) == typeid(T)) {
-            return static_cast<T*>(object);
-        }
-        return nullptr;
+        return dynamic_cast<T*>(object);
     }
 };
 

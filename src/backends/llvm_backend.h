@@ -5,6 +5,8 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 
+#include "shared/Scope.h"
+
 using namespace llvm;
 
 class LLVMBackend : public Backend {
@@ -15,9 +17,8 @@ public:
 
     Type* GenerateType(TypeNode* type);
 
-    Value * GenerateExpression(ExpressionNode * get);
-
-    void GenerateStatement(StatementNode * get);
+    Value * GenerateRValue(AstNode * get);
+    Value* GenerateLValue(AstNode* get);
 
     void GenerateFunction(FunctionNode* function);
 
@@ -25,6 +26,8 @@ private:
     std::unique_ptr<LLVMContext> context_;
     std::unique_ptr<IRBuilder<> > builder_;
     std::unique_ptr<Module> module_;
+
+    Scope<Value> scope_;
 
     BasicBlock* block_ = nullptr;
 };
