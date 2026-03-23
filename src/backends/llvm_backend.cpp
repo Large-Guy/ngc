@@ -108,7 +108,7 @@ std::pair<Value *, std::unique_ptr<TypeNode>> LLVMBackend::GenerateRValue(AstNod
         auto* var = builder_->CreateAlloca(type, nullptr, variable->name);
         builder_->CreateStore(variable->value ? GenerateRValue(variable->value.get()).first : ConstantAggregateZero::get(type), var);
         scope_.Declare(variable->name, var, UniqueCast<TypeNode>(variable->type->Clone()));
-        return std::pair<Value*, std::unique_ptr<TypeNode>>(var, variable->type.get());
+        return std::pair(var, UniqueCast<TypeNode>(variable->type->Clone()));
     }
     if (auto address = is<AddressNode>(get)) {
         return GenerateLValue(get);
