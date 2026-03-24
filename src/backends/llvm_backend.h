@@ -19,6 +19,8 @@ public:
 
     std::pair<Value *, std::unique_ptr<TypeNode>> Drill(std::pair<Value *, std::unique_ptr<TypeNode>> value);
 
+    std::pair<Value*, std::unique_ptr<TypeNode>> Cast(std::pair<Value*, std::unique_ptr<TypeNode>> value, TypeNode* type);
+
     std::pair<Value *, std::unique_ptr<TypeNode>> GenerateRValue(AstNode *get);
 
     std::pair<Value *, std::unique_ptr<TypeNode>> GenerateLValue(AstNode *get);

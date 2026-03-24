@@ -41,6 +41,13 @@ public:
 
     std::unique_ptr<AstNode> Clone() const override;
 
+    bool Integer() const;
+    bool Float() const;
+    bool Signed() const;
+    bool Boolean() const;
+    bool Pointer() const;
+    size_t Size() const;
+
     TypeNodeType type;
     std::unique_ptr<TypeNode> subtype;
     std::unique_ptr<ExpressionNode> capacity;
