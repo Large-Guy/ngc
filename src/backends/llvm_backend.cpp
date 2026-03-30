@@ -16,6 +16,7 @@
 #include "../ast/nodes/AddressNode.h"
 #include "../ast/nodes/assign_node.h"
 #include "../ast/nodes/binary_node.h"
+#include "../ast/nodes/call_node.h"
 #include "../ast/nodes/cast_node.h"
 #include "../ast/nodes/compound_statement.h"
 #include "../ast/nodes/float_node.h"
@@ -54,6 +55,8 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
     context_ = std::make_unique<LLVMContext>();
     builder_ = std::make_unique<IRBuilder<> >(*context_);
 
+    scope_.PushScope();
+
     for (const auto &node: nodes) {
         if (const auto module = is<ModuleNode>(node.get())) {
             module_ = std::make_unique<Module>(module->path, *context_);
@@ -63,9 +66,17 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
             continue;
         }
         if (const auto function = is<FunctionNode>(node.get())) {
+            GeneratePrototype(function);
+        }
+    }
+
+    for (const auto &node: nodes) {
+        if (const auto function = is<FunctionNode>(node.get())) {
             GenerateFunction(function);
         }
     }
+
+    scope_.PopScope();
 
     if (!module_) {
         throw std::runtime_error("No module node was provided");
@@ -91,7 +102,7 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
     pass_builder.registerLoopAnalyses(lam);
     pass_builder.crossRegisterProxies(lam, fam, cgam, mam);
 
-    ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(OptimizationLevel::O2);
+    ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(OptimizationLevel::O0);
     pass_manager.run(*module_, mam);
 
     llvm::outs() << "\n=== AFTER O2 ===\n";
@@ -132,6 +143,8 @@ Type *LLVMBackend::GenerateType(const TypeNode *type) {
             return FixedVectorType::get(GenerateType(type->subtype.get()), Evaluate(type->capacity.get()));
         case TypeNodeType::TUPLE:
             throw std::runtime_error("Tuple types are not supported");
+        case TypeNodeType::FUNCTION:
+            return PointerType::get(*context_, 0);
         case TypeNodeType::BOOL:
             return Type::getInt1Ty(*context_);
         case TypeNodeType::I8:
@@ -273,7 +286,7 @@ std::pair<Value *, std::unique_ptr<TypeNode>> LLVMBackend::GenerateRValue(AstNod
         //result.first
         builder_->CreateStore(result.first, ret, false);
         builder_->CreateBr(exit);
-        return result;
+        return {};
     }
     if (auto if_statement = is<IfNode>(get)) {
         auto condition = GenerateRValue(if_statement->condition.get(), &BOOLEAN);
@@ -437,6 +450,16 @@ std::pair<Value *, std::unique_ptr<TypeNode>> LLVMBackend::GenerateRValue(AstNod
         auto type = GenerateType(cast->target.get());
         return {builder_->CreateBitCast(x.first, type), UniqueCast<TypeNode>(cast->target->Clone())};
     }
+    if (const auto call = is<CallNode>(get)) {
+        auto callee = GenerateLValue(call->callable.get());
+        auto func = dyn_cast<Function>(callee.first);
+        std::vector<Value *> args;
+        for (const auto &arg: call->args) {
+            args.push_back(GenerateRValue(arg.get(), nullptr).first);
+        }
+        auto val = builder_->CreateCall(FunctionCallee(func->getFunctionType(), func), args);
+        return {val, UniqueCast<TypeNode>(callee.second->subtype->Clone())};
+    }
     throw std::runtime_error("Unsupported expression type");
 }
 
@@ -450,6 +473,33 @@ std::pair<Value *, std::unique_ptr<TypeNode>> LLVMBackend::GenerateLValue(AstNod
         return GenerateLValue(address->target.get());
     }
     throw std::runtime_error("Unsupported expression type");
+}
+
+void LLVMBackend::GeneratePrototype(FunctionNode *function) {
+    std::cout << "Prototype Function: " << function->name << std::endl;
+    Type *return_type = GenerateType(function->return_type.get());
+    std::vector<Type *> args;
+    std::vector<std::string> names;
+    std::vector<std::unique_ptr<TypeNode>> types;
+    for (const auto &arg: function->args) {
+        if (const auto variable = is<VariableNode>(arg.get())) {
+            auto type = GenerateType(variable->type.get());
+            args.push_back(type);
+            names.push_back(variable->name);
+            types.push_back(UniqueCast<TypeNode>(variable->type->Clone()));
+        } else {
+            throw std::runtime_error("Unsupported argument type");
+        }
+    }
+
+    auto function_type = FunctionType::get(return_type, args, false);
+
+    func = Function::Create(function_type, GlobalValue::ExternalLinkage, function->name, module_.get());
+
+    auto type = std::make_unique<TypeNode>(TypeNodeType::FUNCTION);
+    type->subtype = UniqueCast<TypeNode>(function->return_type->Clone());
+
+    scope_.Declare(function->name, func, std::move(type));
 }
 
 void LLVMBackend::GenerateFunction(FunctionNode *function) {
@@ -469,9 +519,7 @@ void LLVMBackend::GenerateFunction(FunctionNode *function) {
         }
     }
 
-    auto function_type = FunctionType::get(return_type, args, false);
-
-    func = Function::Create(function_type, GlobalValue::ExternalLinkage, function->name, module_.get());
+    auto func = module_->getFunction(function->name);
 
     auto block = BasicBlock::Create(*context_, "entry", func);
     builder_->SetInsertPoint(block);

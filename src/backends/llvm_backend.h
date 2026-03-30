@@ -11,6 +11,7 @@ using namespace llvm;
 
 class LLVMBackend : public Backend {
 public:
+
     void Generate(std::vector<std::unique_ptr<AstNode> > nodes) override;
 
     int64_t Evaluate(ExpressionNode* unique);
@@ -26,6 +27,8 @@ public:
     std::pair<Value *, std::unique_ptr<TypeNode>> GenerateRValue(AstNode *get, const TypeNode* expected);
 
     std::pair<Value *, std::unique_ptr<TypeNode>> GenerateLValue(AstNode *get);
+
+    void GeneratePrototype(FunctionNode * function);
 
     void GenerateFunction(FunctionNode* function);
 

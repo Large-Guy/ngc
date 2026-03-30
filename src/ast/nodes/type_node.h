@@ -14,6 +14,7 @@ enum class TypeNodeType {
     MAP,
     SIMD,
     TUPLE,
+    FUNCTION,
 
     BOOL,
 

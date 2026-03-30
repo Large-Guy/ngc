@@ -1,7 +1,11 @@
 module program;
 
+f32 foo()
+{
+    return 1f;
+}
+
 i32 main()
 {
-    i32 x;
-    return x;
+    return foo();
 }
