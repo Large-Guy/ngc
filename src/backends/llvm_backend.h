@@ -11,24 +11,26 @@ using namespace llvm;
 
 class LLVMBackend : public Backend {
 public:
-
     void Generate(std::vector<std::unique_ptr<AstNode> > nodes) override;
 
     int64_t Evaluate(ExpressionNode* unique);
 
-    Type* GenerateType(const TypeNode *type);
+    Type* GenerateType(const TypeNode* type);
 
-    std::pair<Value *, std::unique_ptr<TypeNode>> Drill(std::pair<Value *, std::unique_ptr<TypeNode>> value);
+    std::pair<Value*, std::unique_ptr<TypeNode> > Drill(std::pair<Value*, std::unique_ptr<TypeNode> > value,
+                                                        const TypeNode* type);
 
-    std::pair<Value*, std::unique_ptr<TypeNode>> Cast(std::pair<Value*, std::unique_ptr<TypeNode>> value, const TypeNode *type);
+    std::pair<Value*, std::unique_ptr<TypeNode> > Cast(std::pair<Value*, std::unique_ptr<TypeNode> > value,
+                                                       const TypeNode* type);
 
-    std::unique_ptr<TypeNode> Promote(std::pair<Value*, std::unique_ptr<TypeNode>>& a, std::pair<Value*, std::unique_ptr<TypeNode>>& b);
+    std::unique_ptr<TypeNode> Promote(std::pair<Value*, std::unique_ptr<TypeNode> >& a,
+                                      std::pair<Value*, std::unique_ptr<TypeNode> >& b);
 
-    std::pair<Value *, std::unique_ptr<TypeNode>> GenerateRValue(AstNode *get, const TypeNode* expected);
+    std::pair<Value*, std::unique_ptr<TypeNode> > GenerateRValue(AstNode* get, const TypeNode* expected);
 
-    std::pair<Value *, std::unique_ptr<TypeNode>> GenerateLValue(AstNode *get);
+    std::pair<Value*, std::unique_ptr<TypeNode> > GenerateLValue(AstNode* get);
 
-    void GeneratePrototype(FunctionNode * function);
+    void GeneratePrototype(FunctionNode* function);
 
     void GenerateFunction(FunctionNode* function);
 

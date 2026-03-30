@@ -1,11 +1,8 @@
 module program;
 
-f32 foo()
-{
-    return 1f;
-}
-
 i32 main()
 {
-    return foo();
+    i32 x = 10;
+    i32& borrow = &x;
+    return borrow;
 }

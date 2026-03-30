@@ -95,6 +95,10 @@ llvm_map_components_to_libnames(LLVM_LIBS
         x86codegen
         x86asmparser
         passes
+        aarch64codegen
+        aarch64asmparser
+        aarch64desc
+        aarch64info
 )
 
 target_link_libraries(ngc PRIVATE ${LLVM_LIBS})

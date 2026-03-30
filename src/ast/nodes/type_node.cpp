@@ -11,7 +11,8 @@ std::unique_ptr<AstNode> TypeNode::Clone() const {
     if (subtype != nullptr) {
         sub = UniqueCast<TypeNode>(subtype->Clone());
     }
-    return std::make_unique<TypeNode>(type, std::move(sub), capacity ? UniqueCast<ExpressionNode>(capacity->Clone()) : nullptr);
+    return std::make_unique<TypeNode>(type, std::move(sub),
+                                      capacity ? UniqueCast<ExpressionNode>(capacity->Clone()) : nullptr);
 }
 
 bool TypeNode::Integer() const {
@@ -43,6 +44,8 @@ size_t TypeNode::Size() const {
         case TypeNodeType::BORROW:
             return 0;
         case TypeNodeType::OWNER:
+            return 0;
+        case TypeNodeType::FUNCTION:
             return 0;
         case TypeNodeType::OPTIONAL:
             return 0;
