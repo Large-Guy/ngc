@@ -354,8 +354,26 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         return {};
     }
     if (const auto integer = is<IntegerNode>(get)) {
-        return Cast(std::pair(ConstantInt::get(*context_, APInt(64, integer->value, false)),
-                              std::make_unique<TypeNode>(TypeNodeType::I64)), expected);
+        Value* val = nullptr;
+        if (expected->Integer()) {
+            switch (expected->type) {
+                case TypeNodeType::I8:
+                    val = ConstantInt::get(*context_, APInt(8, integer->value));
+                    break;
+                case TypeNodeType::I16:
+                    val = ConstantInt::get(*context_, APInt(16, integer->value));
+                    break;
+                case TypeNodeType::I32:
+                    val = ConstantInt::get(*context_, APInt(32, integer->value));
+                    break;
+                case TypeNodeType::I64:
+                    val = ConstantInt::get(*context_, APInt(64, integer->value));
+                    break;
+                default:
+                    throw std::runtime_error("Unsupported integer type");
+            }
+        }
+        return {val, UniqueCast<TypeNode>(expected->Clone())};
     }
     if (const auto floating = is<FloatNode>(get)) {
         return Cast(std::pair(ConstantFP::get(*context_, APFloat(floating->value)),
@@ -493,8 +511,8 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto x = GenerateRValue(heap->expression.get(), expected->subtype.get());
         auto type = GenerateType(x.second.get());
         auto ptr = builder_->CreateMalloc(Type::getInt64Ty(*context_), type,
-                                          ConstantInt::get(Type::getInt64Ty(*context_), 1), nullptr);
-        builder_->CreateStore(ptr, x.first);
+                                          ConstantInt::get(*context_, APInt(64, x.second->Size())), nullptr);
+        builder_->CreateStore(x.first, ptr);
         return {ptr, UniqueCast<TypeNode>(expected->Clone())};
     }
     if (const auto cast = is<CastNode>(get)) {

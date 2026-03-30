@@ -2,7 +2,6 @@ module program;
 
 i32 main()
 {
-    i32 x = 10;
-    i32& borrow = &x;
-    return borrow;
+    f32* heap = [123f];
+    return 0;
 }
