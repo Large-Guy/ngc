@@ -3,7 +3,7 @@
 #include "../../memory_utils.h"
 
 VariableNode::VariableNode(const std::string& name, std::unique_ptr<TypeNode> type,
-                           std::unique_ptr<ExpressionNode> value) : DefinitionNode(name), type(std::move(type)),
+                           std::unique_ptr<ExpressionNode> value) : DefinitionNode(name, std::move(type)),
 
                                                                     value(std::move
                                                                         (value)

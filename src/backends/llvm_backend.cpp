@@ -103,7 +103,7 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
     pass_builder.registerLoopAnalyses(lam);
     pass_builder.crossRegisterProxies(lam, fam, cgam, mam);
 
-    ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(OptimizationLevel::O0);
+    ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(OptimizationLevel::O1);
     pass_manager.run(*module_, mam);
 
     llvm::outs() << "\n=== AFTER O2 ===\n";
@@ -170,8 +170,6 @@ Type* LLVMBackend::GenerateType(const TypeNode* type) {
             return Type::getDoubleTy(*context_);
         case TypeNodeType::TYPE_COUNT:
             throw std::runtime_error("Type count is invalid");
-        case TypeNodeType::INFERED:
-            throw std::runtime_error("Type is not specified");
     }
     throw std::runtime_error("Type is not supported");
 }
@@ -181,8 +179,8 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Drill(std::pair<Value
     if (expected != nullptr && value.second->Equal(expected)) {
         return value;
     }
-    if (value.second->subtype != nullptr && (value.second->subtype->type == TypeNodeType::BORROW || value.second->
-                                             subtype->type == TypeNodeType::OWNER)) {
+    if (value.second != nullptr && (value.second->type == TypeNodeType::BORROW || value.second->type ==
+                                    TypeNodeType::OWNER)) {
         auto new_type = std::move(value.second->subtype);
         return Drill(std::pair(builder_->CreateLoad(GenerateType(new_type.get()), value.first), std::move(new_type)),
                      expected);
@@ -285,6 +283,20 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         return Cast(std::move(last), expected);
     }
     if (auto variable = is<VariableNode>(get)) {
+        if (variable->type == nullptr) {
+            //inferred
+            if (variable->value == nullptr)
+                throw std::runtime_error("Inferred variable value is null");
+            auto val = GenerateRValue(variable->value.get(), nullptr);
+
+            auto* type = GenerateType(val.second.get());
+            auto* var = builder_->CreateAlloca(type, nullptr, variable->name);
+            builder_->CreateStore(val.first, var);
+            auto ptr_type = std::make_unique<TypeNode>(TypeNodeType::OWNER,
+                                                       UniqueCast<TypeNode>(val.second->Clone()));
+            scope_.Declare(variable->name, var, UniqueCast<TypeNode>(ptr_type->Clone()));
+            return std::pair(var, UniqueCast<TypeNode>(ptr_type->Clone()));
+        }
         auto* type = GenerateType(variable->type.get());
         auto* var = builder_->CreateAlloca(type, nullptr, variable->name);
         builder_->CreateStore(variable->value
@@ -372,14 +384,22 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
                 default:
                     throw std::runtime_error("Unsupported integer type");
             }
-        } else {
-            auto value = std::make_pair(ConstantInt::get(*context_, APInt(64, integer->value)),
-                                        std::make_unique<TypeNode>(TypeNodeType::I64));
-            return Cast(std::move(value), expected);
+            return {val, UniqueCast<TypeNode>(expected->Clone())};
         }
-        return {val, UniqueCast<TypeNode>(expected->Clone())};
+        auto value = std::make_pair(ConstantInt::get(*context_, APInt(32, integer->value)),
+                                    std::make_unique<TypeNode>(TypeNodeType::I32));
+        if (expected == nullptr)
+            return value;
+        return Cast(std::move(value), expected);
     }
     if (const auto floating = is<FloatNode>(get)) {
+        if (expected == nullptr) {
+            if (floating->is_double)
+                return std::pair(ConstantFP::get(*context_, APFloat(floating->value)),
+                                 std::make_unique<TypeNode>(TypeNodeType::F64));
+            return std::pair(ConstantFP::get(*context_, APFloat(static_cast<float>(floating->value))),
+                             std::make_unique<TypeNode>(TypeNodeType::F32));
+        }
         return Cast(std::pair(ConstantFP::get(*context_, APFloat(floating->value)),
                               std::make_unique<TypeNode>(TypeNodeType::F64)), expected);
     }
@@ -400,12 +420,15 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto var = scope_.Lookup(identifier->identifier);
         auto type = scope_.Type(identifier->identifier);
         auto drill = Drill({var, UniqueCast<TypeNode>(type->Clone())}, expected);
-        return std::pair(builder_->CreateLoad(GenerateType(type), drill.first), UniqueCast<TypeNode>(type->Clone()));
+        return drill;
     }
     if (const auto assign = is<AssignNode>(get)) {
         auto target = GenerateLValue(assign->target.get());
-        target = Drill(std::move(target), nullptr);
-        auto value = GenerateRValue(assign->value.get(), target.second.get());
+        auto type_target = target.second.get();
+        while (type_target->subtype->Pointer())
+            type_target = type_target->subtype.get();
+        target = Drill(std::move(target), type_target);
+        auto value = GenerateRValue(assign->value.get(), type_target);
         builder_->CreateStore(value.first, target.first);
         return value;
     }
@@ -413,7 +436,71 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto left = GenerateRValue(binary->left.get(), nullptr);
         auto right = GenerateRValue(binary->right.get(), nullptr);
         if (left.first->getType()->isFloatTy() || right.first->getType()->isFloatTy()) {
-            throw std::runtime_error("Floats are not supported");
+            auto promotion = Promote(left, right);
+            left = Cast(std::move(left), promotion.get());
+            right = Cast(std::move(right), promotion.get());
+
+            switch (binary->type) {
+                case BinaryNodeType::ADD:
+                    return std::pair(builder_->CreateFAdd(left.first, right.first),
+                                     std::move(promotion));
+                case BinaryNodeType::SUBTRACT:
+                    return std::pair(builder_->CreateFSub(left.first, right.first),
+                                     std::move(promotion));
+                case BinaryNodeType::MULTIPLY:
+                    return std::pair(builder_->CreateFMul(left.first, right.first),
+                                     std::move(promotion));
+                case BinaryNodeType::DIVIDE: {
+                    return std::pair(builder_->CreateFDiv(left.first, right.first),
+                                     std::move(promotion));
+                }
+                case BinaryNodeType::EXPONENT:
+                    return std::pair(
+                        builder_->CreateIntrinsic(Intrinsic::pow, left.first->getType(),
+                                                  {left.first, right.first}),
+                        std::move(promotion)
+                    );
+                case BinaryNodeType::MODULO: {
+                    return std::pair(builder_->CreateFRem(left.first, right.first),
+                                     std::move(promotion));
+                }
+                case BinaryNodeType::BITWISE_OR:
+                    return std::pair(builder_->CreateOr(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::I64));
+                case BinaryNodeType::BITWISE_XOR:
+                    return std::pair(builder_->CreateXor(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::I64));
+                case BinaryNodeType::BITWISE_AND:
+                    return std::pair(builder_->CreateAnd(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::I64));
+                case BinaryNodeType::BITWISE_LEFT:
+                    return std::pair(builder_->CreateShl(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::I64));
+                case BinaryNodeType::BITWISE_RIGHT:
+                    return std::pair(builder_->CreateLShr(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::I64));
+                case BinaryNodeType::GREATER:
+                    return std::pair(builder_->CreateFCmpOGT(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::BOOL));
+                case BinaryNodeType::GREATER_EQUAL:
+                    return std::pair(builder_->CreateFCmpOGE(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::BOOL));
+                case BinaryNodeType::LESS:
+                    return std::pair(builder_->CreateFCmpOLT(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::BOOL));
+                case BinaryNodeType::LESS_EQUAL:
+                    return std::pair(builder_->CreateFCmpOLE(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::BOOL));
+                case BinaryNodeType::EQUAL:
+                    return std::pair(builder_->CreateFCmpOEQ(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::BOOL));
+                case BinaryNodeType::NOT_EQUAL:
+                    return std::pair(builder_->CreateFCmpONE(left.first, right.first),
+                                     std::make_unique<TypeNode>(TypeNodeType::BOOL));
+                case BinaryNodeType::INDEX:
+                default:
+                    throw std::runtime_error("Unsupported binary expression type");
+            }
         }
 
         auto promotion = Promote(left, right);
@@ -425,68 +512,72 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         switch (binary->type) {
             case BinaryNodeType::ADD:
                 return std::pair(builder_->CreateAdd(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::SUBTRACT:
                 return std::pair(builder_->CreateSub(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::MULTIPLY:
                 return std::pair(builder_->CreateMul(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::DIVIDE: {
                 if (is_signed)
                     return std::pair(builder_->CreateSDiv(left.first, right.first),
-                                     std::make_unique<TypeNode>(TypeNodeType::I64));
+                                     std::move(promotion));
                 return std::pair(builder_->CreateUDiv(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             }
             case BinaryNodeType::EXPONENT:
-                throw std::runtime_error("Unsupported complex binary expression type");
+                return std::pair(
+                    builder_->CreateIntrinsic(Intrinsic::powi, left.first->getType(),
+                                              {left.first, right.first}),
+                    std::move(promotion)
+                );
             case BinaryNodeType::MODULO: {
                 if (is_signed)
                     return std::pair(builder_->CreateSRem(left.first, right.first),
-                                     std::make_unique<TypeNode>(TypeNodeType::I64));
+                                     std::move(promotion));
                 return std::pair(builder_->CreateURem(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             }
             case BinaryNodeType::BITWISE_OR:
                 return std::pair(builder_->CreateOr(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::BITWISE_XOR:
                 return std::pair(builder_->CreateXor(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::BITWISE_AND:
                 return std::pair(builder_->CreateAnd(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::BITWISE_LEFT:
                 return std::pair(builder_->CreateShl(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::BITWISE_RIGHT:
                 return std::pair(builder_->CreateLShr(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::GREATER:
                 return std::pair(builder_->CreateICmpSGT(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::GREATER_EQUAL:
                 return std::pair(builder_->CreateICmpSGE(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::LESS:
                 return std::pair(builder_->CreateICmpSLT(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::LESS_EQUAL:
                 return std::pair(builder_->CreateICmpSLE(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::EQUAL:
                 return std::pair(builder_->CreateICmpEQ(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::NOT_EQUAL:
                 return std::pair(builder_->CreateICmpNE(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::AND:
                 return std::pair(builder_->CreateLogicalAnd(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::OR:
                 return std::pair(builder_->CreateLogicalOr(left.first, right.first),
-                                 std::make_unique<TypeNode>(TypeNodeType::I64));
+                                 std::move(promotion));
             case BinaryNodeType::INDEX:
             default:
                 throw std::runtime_error("Unsupported binary expression type");
@@ -532,8 +623,11 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto function = dyn_cast<Function>(callee.first);
         std::vector<Value*> args;
         args.reserve(call->args.size());
-        for (const auto& arg: call->args) {
-            args.push_back(GenerateRValue(arg.get(), nullptr).first);
+        auto signature = signatures[function];
+        for (auto i = 0; i < call->args.size(); i++) {
+            const auto& arg = call->args[i];
+            const auto& expect = signature->args[i]->type;
+            args.push_back(GenerateRValue(arg.get(), expect.get()).first);
         }
         auto val = builder_->CreateCall(FunctionCallee(function->getFunctionType(), function), args);
         return {val, UniqueCast<TypeNode>(callee.second->subtype->Clone())};
@@ -555,7 +649,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
 
 void LLVMBackend::GeneratePrototype(FunctionNode* function) {
     std::cout << "Prototype Function: " << function->name << std::endl;
-    Type* return_type = GenerateType(function->return_type.get());
+    Type* return_type = GenerateType(function->type.get());
     std::vector<Type*> args;
     std::vector<std::string> names;
     std::vector<std::unique_ptr<TypeNode> > types;
@@ -572,17 +666,19 @@ void LLVMBackend::GeneratePrototype(FunctionNode* function) {
 
     auto function_type = FunctionType::get(return_type, args, false);
 
-    func = Function::Create(function_type, GlobalValue::ExternalLinkage, function->name, module_.get());
+    auto func = Function::Create(function_type, GlobalValue::ExternalLinkage, function->name, module_.get());
+
+    signatures[func] = function;
 
     auto type = std::make_unique<TypeNode>(TypeNodeType::FUNCTION);
-    type->subtype = UniqueCast<TypeNode>(function->return_type->Clone());
+    type->subtype = UniqueCast<TypeNode>(function->type->Clone());
 
     scope_.Declare(function->name, func, std::move(type));
 }
 
 void LLVMBackend::GenerateFunction(FunctionNode* function) {
     std::cout << "Function: " << function->name << std::endl;
-    Type* return_type = GenerateType(function->return_type.get());
+    Type* return_type = GenerateType(function->type.get());
     std::vector<Type*> args;
     std::vector<std::string> names;
     std::vector<std::unique_ptr<TypeNode> > types;
@@ -597,12 +693,12 @@ void LLVMBackend::GenerateFunction(FunctionNode* function) {
         }
     }
 
-    auto func = module_->getFunction(function->name);
+    func = module_->getFunction(function->name);
 
     auto block = BasicBlock::Create(*context_, "entry", func);
     builder_->SetInsertPoint(block);
 
-    if (function->return_type->type != TypeNodeType::VOID) {
+    if (function->type->type != TypeNodeType::VOID) {
         ret = builder_->CreateAlloca(return_type, nullptr, "return.addr");
         builder_->CreateStore(Constant::getNullValue(return_type), ret);
     }
@@ -613,13 +709,14 @@ void LLVMBackend::GenerateFunction(FunctionNode* function) {
         arg.setName(names[idx]);
         auto* arg_slot = builder_->CreateAlloca(arg.getType(), nullptr, names[idx] + ".addr");
         builder_->CreateStore(&arg, arg_slot);
-        scope_.Declare(names[idx], arg_slot, std::move(types[idx]));
+        auto ptr_arg = std::make_unique<TypeNode>(TypeNodeType::OWNER, UniqueCast<TypeNode>(types[idx]->Clone()));
+        scope_.Declare(names[idx], arg_slot, std::move(ptr_arg));
         idx++;
     }
 
     exit = BasicBlock::Create(*context_, "exit");
 
-    GenerateRValue(function->body.get(), function->return_type.get());
+    GenerateRValue(function->body.get(), function->type.get());
 
     if (!builder_->GetInsertBlock()->getTerminator())
         builder_->CreateBr(exit);
@@ -628,7 +725,7 @@ void LLVMBackend::GenerateFunction(FunctionNode* function) {
 
     builder_->SetInsertPoint(exit);
 
-    if (function->return_type->type != TypeNodeType::VOID) {
+    if (function->type->type != TypeNodeType::VOID) {
         auto load = builder_->CreateLoad(return_type, ret);
         builder_->CreateRet(load);
     } else {
@@ -644,4 +741,6 @@ void LLVMBackend::GenerateFunction(FunctionNode* function) {
     func = nullptr;
 
     scope_.PopScope();
+
+    exit = nullptr;
 }

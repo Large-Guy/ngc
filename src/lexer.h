@@ -70,6 +70,7 @@ enum class TokenType {
     CHARACTER,
     INTEGER,
     FLOAT,
+    DOUBLE,
 
     IDENTIFIER,
 
@@ -144,32 +145,49 @@ struct Token {
 
 class Lexer {
 public:
-
     Lexer(std::string source);
+
     Lexer(Lexer& lexer) noexcept;
+
     Lexer(Lexer&& lexer) noexcept;
+
     ~Lexer();
 
     Token Next();
 
 private:
     bool End();
+
     Token New(TokenType type);
+
     char Advance();
+
     bool Match(char expected);
+
     char View(uint32_t offset = 0);
+
     char Peek();
+
     char PeekNext();
+
     char PeekNext(uint32_t offset);
+
     void SkipWhitespace();
+
     bool IsDigit(char c);
+
     bool IsAlpha(char c);
+
     Token String();
+
     Token Character();
+
     Token Number();
 
     TokenType Keyword(uint32_t start, std::string remainder, TokenType type);
+
     TokenType Type();
+
     Token Identifier();
 
 

@@ -79,8 +79,6 @@ size_t TypeNode::Size() const {
             return 8;
         case TypeNodeType::TYPE_COUNT:
             return 0;
-        case TypeNodeType::INFERED:
-            return 0;
     }
     return 0;
 }

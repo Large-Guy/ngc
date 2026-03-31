@@ -5,8 +5,7 @@
 
 FunctionNode::FunctionNode(const std::string& name, std::unique_ptr<TypeNode> return_type,
                            std::vector<std::unique_ptr<DefinitionNode> > args,
-                           std::unique_ptr<StatementNode> body) : DefinitionNode(name),
-                                                                  return_type(std::move(return_type)),
+                           std::unique_ptr<StatementNode> body) : DefinitionNode(name, std::move(return_type)),
                                                                   args(std::move(args)), body(std::move(body)) {
 }
 
@@ -16,7 +15,7 @@ std::unique_ptr<AstNode> FunctionNode::Clone() const {
         arguments.push_back(UniqueCast<DefinitionNode>(arg->Clone()));
     }
 
-    return std::make_unique<FunctionNode>(name, UniqueCast<TypeNode>(return_type->Clone()), std::move(arguments),
+    return std::make_unique<FunctionNode>(name, UniqueCast<TypeNode>(type->Clone()), std::move(arguments),
                                           UniqueCast<StatementNode>(body->Clone()));
 }
 

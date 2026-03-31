@@ -5,8 +5,7 @@
 #include "lexer.h"
 
 std::string TokenTypeToString(TokenType type) {
-    switch (type)
-    {
+    switch (type) {
         case TokenType::ERROR: return "ERROR";
         case TokenType::EOF_: return "EOF";
         case TokenType::LEFT_PAREN: return "LEFT_PAREN";
@@ -98,7 +97,7 @@ Lexer::Lexer(Lexer& lexer) noexcept {
     current_ = lexer.current_;
 }
 
-Lexer::Lexer(Lexer&& lexer)  noexcept {
+Lexer::Lexer(Lexer&& lexer) noexcept {
     source_ = std::move(lexer.source_);
     line_ = lexer.line_;
     start_ = lexer.start_;
@@ -239,8 +238,7 @@ void Lexer::SkipWhitespace() {
                 if (PeekNext() == '/') {
                     while (Peek() != '\n' && !End())
                         Advance();
-                }
-                else {
+                } else {
                     return;
                 }
             }
@@ -284,14 +282,14 @@ Token Lexer::Character() {
 }
 
 Token Lexer::Number() {
-    bool floating = false;
+    int floating = 0;
 
     while (IsDigit(Peek())) {
         Advance();
     }
 
     if (Peek() == '.' && IsDigit(PeekNext())) {
-        floating = true;
+        floating = 1;
         Advance();
         while (IsDigit(Peek())) {
             Advance();
@@ -299,16 +297,21 @@ Token Lexer::Number() {
     }
 
     if (Peek() == 'f' || Peek() == 'F') {
-        floating = true;
+        floating = 1;
         Advance();
+        if (Peek() == 'f' || Peek() == 'F') {
+            floating = 2;
+            Advance();
+        }
     }
 
-    return New(floating ? TokenType::FLOAT : TokenType::INTEGER);
+    return New(floating ? (floating == 1 ? TokenType::FLOAT : TokenType::DOUBLE) : TokenType::INTEGER);
 }
 
 TokenType Lexer::Keyword(uint32_t start, std::string remainder, TokenType type) {
     auto sub = source_.substr(start, remainder.size());
-    if (current_ - start_ == start + remainder.size() && source_.substr(start_ + start, remainder.size()) == remainder) {
+    if (current_ - start_ == start + remainder.size() && source_.substr(start_ + start, remainder.size()) ==
+        remainder) {
         return type;
     }
     return TokenType::IDENTIFIER;
@@ -316,132 +319,107 @@ TokenType Lexer::Keyword(uint32_t start, std::string remainder, TokenType type) 
 
 TokenType Lexer::Type() {
     switch (View()) {
-        case 'r':
-            {
-                if (current_ - start_ > 1 && View(1) == 'e' && current_ - start_ > 2)
-                {
-                    switch (View(2))
-                    {
-                        case 'g': return Keyword(3, "ion", TokenType::REGION);
-                        case 't': return Keyword(3, "urn", TokenType::RETURN);
-                        default: break;
-                    }
+        case 'r': {
+            if (current_ - start_ > 1 && View(1) == 'e' && current_ - start_ > 2) {
+                switch (View(2)) {
+                    case 'g': return Keyword(3, "ion", TokenType::REGION);
+                    case 't': return Keyword(3, "urn", TokenType::RETURN);
+                    default: break;
                 }
-                break;
             }
+            break;
+        }
         case 'v': return Keyword(1, "oid", TokenType::VOID);
-        case 'i':
-            {
-                if (current_ - start_ > 1)
-                {
-                    switch (View(1))
-                    {
-                        case '8': return Keyword(2, "", TokenType::I8);
-                        case '1': return Keyword(2, "6", TokenType::I16);
-                        case '3': return Keyword(2, "2", TokenType::I32);
-                        case '6': return Keyword(2, "4", TokenType::I64);
-                        case 's': return Keyword(2, "ize", TokenType::ISIZE);
-                        case 'm': return Keyword(2, "port", TokenType::IMPORT);
-                        case 'f': return Keyword(2, "", TokenType::IF);
-                        case 'n': {
-                            if (current_ - start_ > 2) {
-                                switch (View(2)) {
-                                    case 't': return Keyword(3, "erface", TokenType::INTERFACE);
-                                }
+        case 'i': {
+            if (current_ - start_ > 1) {
+                switch (View(1)) {
+                    case '8': return Keyword(2, "", TokenType::I8);
+                    case '1': return Keyword(2, "6", TokenType::I16);
+                    case '3': return Keyword(2, "2", TokenType::I32);
+                    case '6': return Keyword(2, "4", TokenType::I64);
+                    case 's': return Keyword(2, "ize", TokenType::ISIZE);
+                    case 'm': return Keyword(2, "port", TokenType::IMPORT);
+                    case 'f': return Keyword(2, "", TokenType::IF);
+                    case 'n': {
+                        if (current_ - start_ > 2) {
+                            switch (View(2)) {
+                                case 't': return Keyword(3, "erface", TokenType::INTERFACE);
                             }
-                            else {
-                                return TokenType::IN;
+                        } else {
+                            return TokenType::IN;
+                        }
+                    }
+                    default: break;
+                }
+            }
+            break;
+        }
+        case 'u': {
+            if (current_ - start_ > 1) {
+                switch (View(1)) {
+                    case '8': return Keyword(2, "", TokenType::U8);
+                    case '1': return Keyword(2, "6", TokenType::U16);
+                    case '3': return Keyword(2, "2", TokenType::U32);
+                    case '6': return Keyword(2, "4", TokenType::U64);
+                    case 's': return Keyword(2, "ize", TokenType::USIZE);
+                    case 'n': return Keyword(2, "ion", TokenType::UNION);
+                    default: break;
+                }
+            }
+            break;
+        }
+        case 's': {
+            if (current_ - start_ > 1 && View(1) == 't' && current_ - start_ > 2) {
+                switch (View(2)) {
+                    case 'r': {
+                        if (current_ - start_ > 3) {
+                            switch (View(3)) {
+                                case 'i': return Keyword(4, "ng", TokenType::STRING);
+                                case 'u': return Keyword(4, "ct", TokenType::STRUCT);
+                                default: break;
                             }
                         }
-                        default: break;
+                        break;
                     }
+                    case 'a': return Keyword(3, "tic", TokenType::STATIC);
+                    default: break;
                 }
-                break;
             }
-        case 'u':
-            {
-                if (current_ - start_ > 1)
-                {
-                    switch (View(1))
-                    {
-                        case '8': return Keyword(2, "", TokenType::U8);
-                        case '1': return Keyword(2, "6", TokenType::U16);
-                        case '3': return Keyword(2, "2", TokenType::U32);
-                        case '6': return Keyword(2, "4", TokenType::U64);
-                        case 's': return Keyword(2, "ize", TokenType::USIZE);
-                        case 'n': return Keyword(2, "ion", TokenType::UNION);
-                        default: break;
-                    }
+            break;
+        }
+        case 'm': {
+            if (current_ - start_ > 1 && View(1) == 'o' && current_ - start_ > 2) {
+                switch (View(2)) {
+                    case 'v': return Keyword(3, "e", TokenType::MOVE);
+                    case 'd': return Keyword(3, "ule", TokenType::MODULE);
+                    default: break;
                 }
-                break;
             }
-        case 's':
-            {
-                if (current_ - start_ > 1 && View(1) == 't' && current_ - start_ > 2)
-                {
-                    switch (View(2))
-                    {
-                        case 'r':
-                            {
-                                if (current_ - start_ > 3)
-                                {
-                                    switch (View(3))
-                                    {
-                                        case 'i': return Keyword(4, "ng", TokenType::STRING);
-                                        case 'u': return Keyword(4, "ct", TokenType::STRUCT);
-                                        default: break;
-                                    }
-                                }
-                                break;
-                            }
-                        case 'a': return Keyword(3, "tic", TokenType::STATIC);
-                        default: break;
-                    }
+            break;
+        }
+        case 'c': {
+            if (current_ - start_ > 1 && View(1) == 'o' && current_ - start_ > 2) {
+                switch (View(2)) {
+                    case 'p': return Keyword(3, "y", TokenType::COPY);
+                    case 'n': return Keyword(3, "st", TokenType::CONST);
+                    default: break;
                 }
-                break;
             }
-        case 'm':
-            {
-                if (current_ - start_ > 1 && View(1) == 'o' && current_ - start_ > 2)
-                {
-                    switch (View(2))
-                    {
-                        case 'v': return Keyword(3, "e", TokenType::MOVE);
-                        case 'd': return Keyword(3, "ule", TokenType::MODULE);
-                        default: break;
-                    }
-                }
-                break;
-            }
-        case 'c':
-            {
-                if (current_ - start_ > 1 && View(1) == 'o' && current_ - start_ > 2)
-                {
-                    switch (View(2))
-                    {
-                        case 'p': return Keyword(3, "y", TokenType::COPY);
-                        case 'n': return Keyword(3, "st", TokenType::CONST);
-                        default: break;
-                    }
-                }
-                break;
-            }
+            break;
+        }
         case 'n': return Keyword(1, "ull", TokenType::NULL_);
         case 't': return Keyword(1, "rue", TokenType::TRUE);
-        case 'f':
-            {
-                if (current_ - start_ > 1)
-                {
-                    switch (View(1))
-                    {
-                        case 'a': return Keyword(2, "lse", TokenType::FALSE);
-                        case 'o': return Keyword(2, "r", TokenType::FOR);
-                        case '3': return Keyword(2, "2", TokenType::F32);
-                        case '6': return Keyword(2, "4", TokenType::F64);
-                        default: break;
-                    }
+        case 'f': {
+            if (current_ - start_ > 1) {
+                switch (View(1)) {
+                    case 'a': return Keyword(2, "lse", TokenType::FALSE);
+                    case 'o': return Keyword(2, "r", TokenType::FOR);
+                    case '3': return Keyword(2, "2", TokenType::F32);
+                    case '6': return Keyword(2, "4", TokenType::F64);
+                    default: break;
                 }
             }
+        }
         case 'e': return Keyword(1, "lse", TokenType::ELSE);
         case 'w': return Keyword(1, "hile", TokenType::WHILE);
         case 'd': return Keyword(1, "o", TokenType::DO);

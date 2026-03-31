@@ -48,22 +48,53 @@ public:
     static std::unique_ptr<ExpressionNode> Assign(Parser& parser, std::unique_ptr<ExpressionNode> target,
                                                   bool canAssign) {
         auto assignment = parser.previous_;
+        std::unique_ptr<ExpressionNode> value;
         switch (assignment.type) {
             case TokenType::EQUAL: {
-                auto assign = std::make_unique<AssignNode>(std::move(target), std::move(parser.Expression()));
-                return assign;
+                value = parser.Expression();
+                break;
+            }
+            case TokenType::PLUS_EQUAL: {
+                value = std::make_unique<BinaryNode>(BinaryNodeType::ADD,
+                                                     UniqueCast<ExpressionNode>(target->Clone()),
+                                                     parser.Expression());
+                break;
+            }
+            case TokenType::MINUS_EQUAL: {
+                value = std::make_unique<BinaryNode>(BinaryNodeType::SUBTRACT,
+                                                     UniqueCast<ExpressionNode>(target->Clone()),
+                                                     parser.Expression());
+                break;
+            }
+            case TokenType::STAR_EQUAL: {
+                value = std::make_unique<BinaryNode>(BinaryNodeType::MULTIPLY,
+                                                     UniqueCast<ExpressionNode>(target->Clone()),
+                                                     parser.Expression());
+                break;
+            }
+            case TokenType::SLASH_EQUAL: {
+                value = std::make_unique<BinaryNode>(BinaryNodeType::DIVIDE,
+                                                     UniqueCast<ExpressionNode>(target->Clone()),
+                                                     parser.Expression());
+                break;
             }
             default: {
                 parser.Error(assignment, "Invalid assignment operator");
                 return nullptr;
             }
         }
+
+        auto assign = std::make_unique<AssignNode>(std::move(target), std::move(value));
+        return assign;
     }
 
     static std::unique_ptr<ExpressionNode> Number(Parser& parser, bool canAssign) {
         auto num = parser.previous_;
+        if (parser.previous_.type == TokenType::DOUBLE) {
+            return std::make_unique<FloatNode>(std::stod(num.value), true);
+        }
         if (parser.previous_.type == TokenType::FLOAT) {
-            return std::make_unique<FloatNode>(std::stod(num.value));
+            return std::make_unique<FloatNode>(std::stod(num.value), false);
         }
         return std::make_unique<IntegerNode>(std::stol(num.value));
     }
@@ -371,11 +402,14 @@ std::unordered_map<TokenType, Parser::ParseRule> Parser::BuildRules() {
     rules[TokenType::DOT] = {nullptr, Expressions::Field, Precedence::CALL};
     rules[TokenType::DOT_DOT] = {nullptr, Expressions::Sequence, Precedence::CALL};
     rules[TokenType::PLUS] = {nullptr, Expressions::Binary, Precedence::TERM};
+    rules[TokenType::PLUS_EQUAL] = {nullptr, Expressions::Assign, Precedence::ASSIGNMENT};
     rules[TokenType::MINUS] = {Expressions::Unary, Expressions::Binary, Precedence::TERM};
+    rules[TokenType::MINUS_EQUAL] = {nullptr, Expressions::Assign, Precedence::ASSIGNMENT};
     rules[TokenType::STAR] = {Expressions::Unary, Expressions::Binary, Precedence::FACTOR};
     rules[TokenType::STAR_STAR] = {nullptr, Expressions::Binary, Precedence::EXPONENT};
-    rules[TokenType::STAR_EQUAL] = {nullptr, nullptr, Precedence::NONE};
+    rules[TokenType::STAR_EQUAL] = {nullptr, Expressions::Assign, Precedence::ASSIGNMENT};
     rules[TokenType::SLASH] = {nullptr, Expressions::Binary, Precedence::FACTOR};
+    rules[TokenType::SLASH_EQUAL] = {nullptr, Expressions::Assign, Precedence::ASSIGNMENT};
     rules[TokenType::BANG] = {Expressions::Unary, nullptr, Precedence::TERM};
     rules[TokenType::BANG_EQUAL] = {nullptr, Expressions::Binary, Precedence::EQUALITY};
     rules[TokenType::EQUAL_EQUAL] = {nullptr, Expressions::Binary, Precedence::EQUALITY};
@@ -396,6 +430,7 @@ std::unordered_map<TokenType, Parser::ParseRule> Parser::BuildRules() {
     rules[TokenType::CHARACTER] = {Expressions::Number, nullptr, Precedence::NONE};
     rules[TokenType::INTEGER] = {Expressions::Number, nullptr, Precedence::NONE};
     rules[TokenType::FLOAT] = {Expressions::Number, nullptr, Precedence::NONE};
+    rules[TokenType::DOUBLE] = {Expressions::Number, nullptr, Precedence::NONE};
     rules[TokenType::IDENTIFIER] = {Expressions::Variable, nullptr, Precedence::NONE};
     rules[TokenType::I8] = {Expressions::Lambda, nullptr, Precedence::UNARY};
     rules[TokenType::I16] = {Expressions::Lambda, nullptr, Precedence::UNARY};
@@ -489,7 +524,7 @@ std::unique_ptr<TypeNode> Parser::NodeFromType(const Token& token) {
         case TokenType::BOOL:
             return std::make_unique<TypeNode>(TypeNodeType::BOOL);
         case TokenType::LET:
-            return std::make_unique<TypeNode>(TypeNodeType::INFERED);
+            return nullptr;
         default: {
             Error(token, "Unsupported type");
             return nullptr;

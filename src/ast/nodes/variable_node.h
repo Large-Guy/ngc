@@ -7,7 +7,6 @@
 
 class VariableNode : public DefinitionNode {
 public:
-    std::unique_ptr<TypeNode> type;
     std::unique_ptr<ExpressionNode> value;
 
     VariableNode(const std::string& name, std::unique_ptr<TypeNode> type,

@@ -16,7 +16,6 @@ public:
 
     std::unique_ptr<AstNode> Clone() const override;
 
-    std::unique_ptr<TypeNode> return_type;
     std::vector<std::unique_ptr<DefinitionNode> > args;
 
     std::unique_ptr<StatementNode> body;

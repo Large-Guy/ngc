@@ -32,7 +32,6 @@ enum class TypeNodeType {
     F64,
 
     TYPE_COUNT, // used for implicit cast table
-    INFERED
 };
 
 class TypeNode : public AstNode {
@@ -43,10 +42,15 @@ public:
     std::unique_ptr<AstNode> Clone() const override;
 
     bool Integer() const;
+
     bool Float() const;
+
     bool Signed() const;
+
     bool Boolean() const;
+
     bool Pointer() const;
+
     size_t Size() const;
 
     bool Equal(const TypeNode* other) const;

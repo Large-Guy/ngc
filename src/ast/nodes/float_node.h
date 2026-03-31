@@ -7,10 +7,11 @@
 
 class FloatNode : public ExpressionNode {
 public:
-    FloatNode(double value);
+    FloatNode(double value, bool is_double);
 
     std::unique_ptr<AstNode> Clone() const override;
 
+    bool is_double;
     double value;
 };
 

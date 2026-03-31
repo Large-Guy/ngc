@@ -1,7 +1,41 @@
 module program;
 
+i32 factorial(i32 n)
+{
+    i32 i = 1;
+    i32 res = 1;
+    while(i <= n)
+    {
+        res *= i;
+        i += 1;
+    }
+    return res;
+}
+
+f32 sin(f32 x)
+{
+    let cx = x % 3.14159265359f;
+    
+    let i = 0;
+    let mul = 1f;
+    
+    let res = 0f;
+    
+    while(i < 10)
+    {
+        let n = (2 * i + 1) as f32;
+        
+        res += (x ** n) / factorial(n as i32) * mul;
+        
+        i += 1;
+        mul = -mul;
+    }
+    
+    return res;
+}
+
 i32 main()
 {
-    i32 x = 1+2+3;
-    return x;
+    let y = sin(1f);
+    return y;
 }

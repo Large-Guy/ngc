@@ -41,6 +41,8 @@ private:
 
     Scope<Value> scope_;
 
+    std::unordered_map<Function*, FunctionNode*> signatures;
+
     Function* func = nullptr;
     BasicBlock* exit = nullptr;
     Value* ret = nullptr;
