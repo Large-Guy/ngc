@@ -4,6 +4,8 @@
 
 #include "lexer.h"
 
+#include <utility>
+
 std::string TokenTypeToString(TokenType type) {
     switch (type) {
         case TokenType::ERROR: return "ERROR";
@@ -84,7 +86,14 @@ std::string TokenTypeToString(TokenType type) {
 }
 
 Lexer::Lexer(std::string source) {
-    source_ = source;
+    source_ = std::move(source);
+    line_ = 1;
+    start_ = 0;
+    current_ = 0;
+}
+
+Lexer::Lexer(const Lexer& lexer) {
+    source_ = lexer.source_;
     line_ = 1;
     start_ = 0;
     current_ = 0;
@@ -102,6 +111,14 @@ Lexer::Lexer(Lexer&& lexer) noexcept {
     line_ = lexer.line_;
     start_ = lexer.start_;
     current_ = lexer.current_;
+}
+
+Lexer& Lexer::operator=(const Lexer& lexer) noexcept {
+    source_ = lexer.source_;
+    line_ = 1;
+    start_ = 0;
+    current_ = 0;
+    return *this;
 }
 
 Lexer::~Lexer() = default;

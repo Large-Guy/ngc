@@ -34,10 +34,10 @@
 #include "ast/nodes/return_node.h"
 #include "ast/nodes/while_node.h"
 
-Parser::Parser(Lexer lexer) : lexer_(std::move(lexer)) {
+Parser::Parser(std::vector<Lexer> lexer) : lexers_(std::move(lexer)) {
     if (rules_.empty())
         rules_ = BuildRules();
-    Advance();
+    module_ = nullptr;
 }
 
 std::unordered_map<TokenType, Parser::ParseRule> Parser::rules_ = {};
@@ -100,6 +100,7 @@ public:
     }
 
     static std::unique_ptr<ExpressionNode> String(Parser& parser, bool canAssign) {
+        return nullptr;
     }
 
     static std::unique_ptr<ExpressionNode> Group(Parser& parser, bool canAssign) {
@@ -382,6 +383,7 @@ public:
 
     static std::unique_ptr<ExpressionNode>
     Ternary(Parser& parser, std::unique_ptr<ExpressionNode> left, bool canAssign) {
+        return nullptr;
     }
 
     static std::unique_ptr<ExpressionNode> Sequence(Parser& parser, std::unique_ptr<ExpressionNode> left,
@@ -458,9 +460,26 @@ std::unordered_map<TokenType, Parser::ParseRule> Parser::BuildRules() {
 
 std::vector<std::unique_ptr<AstNode> > Parser::Parse() {
     std::vector<std::unique_ptr<AstNode> > nodes = {};
-    while (!Match(TokenType::EOF_)) {
-        nodes.push_back(Statement());
+    for (auto& lexer: lexers_) {
+        lexer_ = &lexer;
+        Advance();
+        while (!Match(TokenType::EOF_)) {
+            if (module_ == nullptr) {
+                auto statement = Statement();
+                if (statement != nullptr) {
+                    throw std::runtime_error("Expected module statement");
+                }
+                continue;
+            }
+            auto statement = Statement();
+            module_->statements.push_back(std::move(statement));
+        }
     }
+
+    for (auto& module: modulesList_) {
+        nodes.push_back(std::move(module.second));
+    }
+
     return nodes;
 }
 
@@ -562,7 +581,8 @@ std::unique_ptr<TypeNode> Parser::BuildType(std::unique_ptr<TypeNode> base) {
 
 std::unique_ptr<StatementNode> Parser::Statement() {
     if (Match(TokenType::MODULE)) {
-        return ModuleStatement();
+        module_ = ModuleStatement();
+        return nullptr;
     }
     if (MatchType()) {
         return DeclarationStatement();
@@ -649,21 +669,29 @@ std::unique_ptr<ExpressionNode> Parser::ExpressionStatement() {
     return expression;
 }
 
-std::unique_ptr<ModuleNode> Parser::ModuleStatement() {
-    std::string name;
-    do {
-        Consume(TokenType::IDENTIFIER, "Expected identifier");
-
-        if (!name.empty()) {
-            name += ".";
-        }
-        name += previous_.value;
+ModuleNode* Parser::ModuleStatement() {
+    Consume(TokenType::IDENTIFIER, "Expected identifier");
+    std::string name = previous_.value;
+    ModuleNode* current = nullptr;
+    if (!modulesList_.contains(name)) {
+        modulesList_[name] = std::make_unique<ModuleNode>(name);
     }
-    while (Match(TokenType::DOT));
+    current = modulesList_[name].get();
+    while (Match(TokenType::DOT)) {
+        Consume(TokenType::IDENTIFIER, "Expected identifier");
+        name = previous_.value;
+
+        if (current->GetSubmodule(name)) {
+            current = current->GetSubmodule(name);
+        } else {
+            auto submodule = std::make_unique<ModuleNode>(name);
+            current = submodule.get();
+        }
+    }
 
     Consume(TokenType::SEMICOLON, "Expected semicolon after statement");
 
-    return std::make_unique<ModuleNode>(name);
+    return current;
 }
 
 std::unique_ptr<DefinitionNode> Parser::Declaration() {
@@ -726,7 +754,7 @@ void Parser::Error(const Token& token, const std::string& message) {
 Token Parser::Advance() {
     previous_ = current_;
     while (true) {
-        current_ = lexer_.Next();
+        current_ = lexer_->Next();
         if (current_.type != TokenType::ERROR)
             break;
 

@@ -64,16 +64,18 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
             module_->setTargetTriple(target_triple);
             module_->setDataLayout(target_machine->createDataLayout());
             std::cout << "Module: " << module->path << std::endl;
-            continue;
-        }
-        if (const auto function = is<FunctionNode>(node.get())) {
-            GeneratePrototype(function);
-        }
-    }
 
-    for (const auto& node: nodes) {
-        if (const auto function = is<FunctionNode>(node.get())) {
-            GenerateFunction(function);
+            for (const auto& statement: module->statements) {
+                if (const auto function = is<FunctionNode>(statement.get())) {
+                    GeneratePrototype(function);
+                }
+            }
+
+            for (const auto& statement: module->statements) {
+                if (const auto function = is<FunctionNode>(statement.get())) {
+                    GenerateFunction(function);
+                }
+            }
         }
     }
 

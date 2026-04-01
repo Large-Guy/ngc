@@ -5,19 +5,23 @@
 #include "parser.h"
 #include "backends/llvm_backend.h"
 
-int main() {
-    std::string path = "main.n";
-    std::ifstream file(path);
-    auto file_size = file.seekg(0, std::ios::end).tellg();
-    file.seekg(0);
+int main(int argc, char** argv) {
+    std::vector<Lexer> lexers;
 
-    std::string content(file_size, '\0');
-    file.read(&content[0], file_size);
-    file.close();
+    for (auto i = 1; i < argc; i++) {
+        std::string path = argv[i];
+        std::ifstream file(path);
+        auto file_size = file.seekg(0, std::ios::end).tellg();
+        file.seekg(0);
 
-    Lexer lexer = {content};
+        std::string content(file_size, '\0');
+        file.read(&content[0], file_size);
+        file.close();
 
-    Parser parser = {std::move(lexer)};
+        lexers.emplace_back(content);
+    }
+
+    Parser parser = {lexers};
 
     auto nodes = parser.Parse();
 

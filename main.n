@@ -1,53 +1,6 @@
 module program;
 
-i32 factorial(i32 n)
-{
-    i32 i = 1;
-    i32 res = 1;
-    while(i <= n)
-    {
-        res *= i;
-        i += 1;
-    }
-    return res;
-}
-
-f32 sin(f32 x)
-{
-    let cx = x % 3.14159265359f;
-    
-    let i = 0;
-    let mul = 1f;
-    
-    let res = 0f;
-    
-    while(i < 10)
-    {
-        let n = (2 * i + 1) as f32;
-        
-        res += (x ** n) / factorial(n as i32) * mul;
-        
-        i += 1;
-        mul = -mul;
-    }
-    
-    return res;
-}
-
-void scale(f32& x, f32& y, f32 scalar)
-{
-    x *= scalar;
-    y *= scalar;
-}
-
 i32 main()
 {
-    f32* x = [3f];
-    f32 y = 4f;
-    
-    f32& borrow = x;
-    
-    scale(borrow, &y, 3f);
-    
-    return x as i32;
+    return sin(1f) as i32;
 }

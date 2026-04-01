@@ -147,9 +147,13 @@ class Lexer {
 public:
     Lexer(std::string source);
 
+    Lexer(const Lexer& lexer);
+
     Lexer(Lexer& lexer) noexcept;
 
     Lexer(Lexer&& lexer) noexcept;
+
+    Lexer& operator=(const Lexer& lexer) noexcept;
 
     ~Lexer();
 

@@ -13,7 +13,7 @@ class TypeNode;
 
 class Parser {
 public:
-    Parser(Lexer lexer);
+    Parser(std::vector<Lexer> lexer);
 
     std::vector<std::unique_ptr<AstNode> > Parse();
 
@@ -77,7 +77,7 @@ private:
 
     std::unique_ptr<ExpressionNode> ExpressionStatement();
 
-    std::unique_ptr<ModuleNode> ModuleStatement();
+    ModuleNode* ModuleStatement();
 
     std::unique_ptr<DefinitionNode> Declaration();
 
@@ -101,10 +101,16 @@ private:
 
     void Consume(TokenType type, const std::string& error);
 
-    Lexer lexer_;
+    ModuleNode* GetModule(std::string name);
+
+    std::vector<Lexer> lexers_;
+    Lexer* lexer_;
 
     Token current_;
     Token previous_;
+
+    std::unordered_map<std::string, std::unique_ptr<ModuleNode> > modulesList_;
+    ModuleNode* module_;
 
     static std::unordered_map<TokenType, Parser::ParseRule> rules_;
 
