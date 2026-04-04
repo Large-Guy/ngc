@@ -4,6 +4,6 @@ i32 global;
 
 i32 main()
 {
-    global = 6;
+    f32<2> point = (1f, 2f);
     return global;
 }

@@ -114,6 +114,8 @@ public:
             }
             while (parser.Match(TokenType::COMMA));
 
+            parser.Consume(TokenType::RIGHT_PAREN, "Expected closing ')'");
+
             return std::make_unique<TupleNode>(std::move(list));
         }
 

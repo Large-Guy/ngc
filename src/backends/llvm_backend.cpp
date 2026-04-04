@@ -28,6 +28,7 @@
 #include "../ast/nodes/literal_node.h"
 #include "../ast/nodes/module_node.h"
 #include "../ast/nodes/return_node.h"
+#include "../ast/nodes/tuple_node.h"
 #include "../ast/nodes/unary_node.h"
 #include "../ast/nodes/variable_node.h"
 #include "../ast/nodes/while_node.h"
@@ -128,6 +129,9 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
 
 int64_t LLVMBackend::Evaluate(ExpressionNode* unique) {
     throw std::runtime_error("Not implemented");
+}
+
+std::unique_ptr<TypeNode> LLVMBackend::EvaluateType() {
 }
 
 Type* LLVMBackend::GenerateType(const TypeNode* type) {
@@ -410,6 +414,13 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         }
         return Cast(std::pair(ConstantFP::get(*context_, APFloat(floating->value)),
                               std::make_unique<TypeNode>(TypeNodeType::F64)), expected);
+    }
+    if (const auto tuple = is<TupleNode>(get)) {
+        auto totalSize = 0;
+        for (auto& node: tuple->elements) {
+            auto type = EvaluateType();
+        }
+        auto arr = builder_->CreateAlloca();
     }
     if (const auto literal = is<LiteralNode>(get)) {
         switch (literal->type) {
