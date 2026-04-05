@@ -51,9 +51,9 @@ public:
 
     bool Pointer() const;
 
-    size_t Size() const;
-
     bool Equal(const TypeNode* other, bool borrowConversion) const;
+
+    bool Indexable();
 
     TypeNodeType type;
     std::unique_ptr<TypeNode> subtype;

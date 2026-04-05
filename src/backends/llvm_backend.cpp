@@ -12,26 +12,28 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Verifier.h>
 
-#include "../memory_utils.h"
-#include "../ast/nodes/AddressNode.h"
-#include "../ast/nodes/assign_node.h"
-#include "../ast/nodes/binary_node.h"
-#include "../ast/nodes/call_node.h"
-#include "../ast/nodes/cast_node.h"
-#include "../ast/nodes/compound_statement.h"
-#include "../ast/nodes/float_node.h"
-#include "../ast/nodes/function_node.h"
-#include "../ast/nodes/heap_node.h"
-#include "../ast/nodes/identifier_node.h"
-#include "../ast/nodes/if_node.h"
-#include "../ast/nodes/integer_node.h"
-#include "../ast/nodes/literal_node.h"
-#include "../ast/nodes/module_node.h"
-#include "../ast/nodes/return_node.h"
-#include "../ast/nodes/tuple_node.h"
-#include "../ast/nodes/unary_node.h"
-#include "../ast/nodes/variable_node.h"
-#include "../ast/nodes/while_node.h"
+#include "memory_utils.h"
+#include "ast/nodes/AddressNode.h"
+#include "ast/nodes/assign_node.h"
+#include "ast/nodes/binary_node.h"
+#include "ast/nodes/call_node.h"
+#include "ast/nodes/cast_node.h"
+#include "ast/nodes/compound_statement.h"
+#include "ast/nodes/field_node.h"
+#include "ast/nodes/float_node.h"
+#include "ast/nodes/function_node.h"
+#include "ast/nodes/heap_node.h"
+#include "ast/nodes/identifier_node.h"
+#include "ast/nodes/if_node.h"
+#include "ast/nodes/index_node.h"
+#include "ast/nodes/integer_node.h"
+#include "ast/nodes/literal_node.h"
+#include "ast/nodes/module_node.h"
+#include "ast/nodes/return_node.h"
+#include "ast/nodes/tuple_node.h"
+#include "ast/nodes/unary_node.h"
+#include "ast/nodes/variable_node.h"
+#include "ast/nodes/while_node.h"
 
 const static TypeNode BOOLEAN = TypeNode(TypeNodeType::BOOL);
 
@@ -127,11 +129,14 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
     dest.close();
 }
 
-int64_t LLVMBackend::Evaluate(ExpressionNode* unique) {
-    throw std::runtime_error("Not implemented");
+std::unique_ptr<TypeNode> LLVMBackend::EvaluateRType(AstNode* get) {
+    if (auto identifier = is<IdentifierNode>(get)) {
+
+    }
 }
 
-std::unique_ptr<TypeNode> LLVMBackend::EvaluateType() {
+std::unique_ptr<TypeNode> LLVMBackend::EvaluateLType(AstNode *get) {
+
 }
 
 Type* LLVMBackend::GenerateType(const TypeNode* type) {
@@ -149,7 +154,7 @@ Type* LLVMBackend::GenerateType(const TypeNode* type) {
         case TypeNodeType::MAP:
             throw std::runtime_error("Map types are not supported");
         case TypeNodeType::SIMD:
-            return FixedVectorType::get(GenerateType(type->subtype.get()), Evaluate(type->capacity.get()));
+            return FixedVectorType::get(GenerateType(type->subtype.get()), EvaluateInt(type->capacity.get()));
         case TypeNodeType::TUPLE:
             throw std::runtime_error("Tuple types are not supported");
         case TypeNodeType::FUNCTION:
@@ -206,7 +211,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Cast(std::pair<Value*
     auto unique_type = UniqueCast<TypeNode>(type->Clone());
 
     if (value.second->Integer() && type->Integer()) {
-        bool narrowing = value.second->Size() > type->Size();
+        bool narrowing = EvaluateSize(value.second.get()) > EvaluateSize(type);
         if (narrowing) {
             return {builder_->CreateTrunc(value.first, llvm_type), std::move(unique_type)};
         }
@@ -253,14 +258,14 @@ std::unique_ptr<TypeNode> LLVMBackend::Promote(std::pair<Value*, std::unique_ptr
                                                std::pair<Value*, std::unique_ptr<TypeNode> >& b) {
     if (a.second->Integer() && b.second->Integer()) {
         //promote to larger type
-        if (a.second->Size() > b.second->Size()) {
+        if (EvaluateSize(a.second.get()) > EvaluateSize(b.second.get())) {
             return UniqueCast<TypeNode>(a.second->Clone());
         }
         return UniqueCast<TypeNode>(b.second->Clone());
     }
     if (a.second->Float() && b.second->Float()) {
         //promote to larger type
-        if (a.second->Size() > b.second->Size()) {
+        if (EvaluateSize(a.second.get()) > EvaluateSize(b.second.get())) {
             return UniqueCast<TypeNode>(a.second->Clone());
         }
         return UniqueCast<TypeNode>(b.second->Clone());
@@ -382,16 +387,28 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         if (expected != nullptr && expected->Integer()) {
             switch (expected->type) {
                 case TypeNodeType::I8:
-                    val = ConstantInt::get(*context_, APInt(8, integer->value));
+                    val = ConstantInt::get(*context_, APInt(8, integer->value, true));
                     break;
                 case TypeNodeType::I16:
-                    val = ConstantInt::get(*context_, APInt(16, integer->value));
+                    val = ConstantInt::get(*context_, APInt(16, integer->value, true));
                     break;
                 case TypeNodeType::I32:
-                    val = ConstantInt::get(*context_, APInt(32, integer->value));
+                    val = ConstantInt::get(*context_, APInt(32, integer->value, true));
                     break;
                 case TypeNodeType::I64:
-                    val = ConstantInt::get(*context_, APInt(64, integer->value));
+                    val = ConstantInt::get(*context_, APInt(64, integer->value, true));
+                    break;
+                case TypeNodeType::U8:
+                    val = ConstantInt::get(*context_, APInt(8, integer->value, false));
+                    break;
+                case TypeNodeType::U16:
+                    val = ConstantInt::get(*context_, APInt(16, integer->value, false));
+                    break;
+                case TypeNodeType::U32:
+                    val = ConstantInt::get(*context_, APInt(32, integer->value, false));
+                    break;
+                case TypeNodeType::U64:
+                    val = ConstantInt::get(*context_, APInt(64, integer->value, false));
                     break;
                 default:
                     throw std::runtime_error("Unsupported integer type");
@@ -416,11 +433,16 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
                               std::make_unique<TypeNode>(TypeNodeType::F64)), expected);
     }
     if (const auto tuple = is<TupleNode>(get)) {
-        auto totalSize = 0;
-        for (auto& node: tuple->elements) {
-            auto type = EvaluateType();
+        std::vector<std::pair<Value*, std::unique_ptr<TypeNode>>> values;
+        size_t size = 0;
+        for (const auto& element: tuple->elements) {
+            auto value = GenerateRValue(element.get(), nullptr);
+            size += EvaluateSize(value.second.get());
+
         }
         auto arr = builder_->CreateAlloca();
+
+        return {nullptr, nullptr};
     }
     if (const auto literal = is<LiteralNode>(get)) {
         switch (literal->type) {
@@ -454,7 +476,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
     if (const auto binary = is<BinaryNode>(get)) {
         auto left = GenerateRValue(binary->left.get(), nullptr);
         auto right = GenerateRValue(binary->right.get(), nullptr);
-        if (left.first->getType()->isFloatTy() || right.first->getType()->isFloatTy()) {
+        if (left.second->Float() || right.second->Float()) {
             auto promotion = Promote(left, right);
             left = Cast(std::move(left), promotion.get());
             right = Cast(std::move(right), promotion.get());
@@ -516,7 +538,6 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
                 case BinaryNodeType::NOT_EQUAL:
                     return std::pair(builder_->CreateFCmpONE(left.first, right.first),
                                      std::make_unique<TypeNode>(TypeNodeType::BOOL));
-                case BinaryNodeType::INDEX:
                 default:
                     throw std::runtime_error("Unsupported binary expression type");
             }
@@ -597,7 +618,6 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             case BinaryNodeType::OR:
                 return std::pair(builder_->CreateLogicalOr(left.first, right.first),
                                  std::move(promotion));
-            case BinaryNodeType::INDEX:
             default:
                 throw std::runtime_error("Unsupported binary expression type");
         }
@@ -625,7 +645,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto x = GenerateRValue(heap->expression.get(), expected->subtype.get());
         auto type = GenerateType(x.second.get());
         auto ptr = builder_->CreateMalloc(Type::getInt64Ty(*context_), type,
-                                          ConstantInt::get(*context_, APInt(64, x.second->Size())), nullptr);
+                                          ConstantInt::get(*context_, APInt(64, EvaluateSize(x.second.get()))), nullptr);
         builder_->CreateStore(x.first, ptr);
         return {ptr, UniqueCast<TypeNode>(expected->Clone())};
     }
@@ -651,6 +671,50 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto val = builder_->CreateCall(FunctionCallee(function->getFunctionType(), function), args);
         return {val, UniqueCast<TypeNode>(callee.second->subtype->Clone())};
     }
+    if (const auto index = is<IndexNode>(get)) {
+        return Drill(GenerateLValue(index), expected);
+    }
+    if (const auto field = is<FieldNode>(get)) {
+        auto location = GenerateLValue(field->object.get());
+        while (location.second->subtype->Pointer())
+            location = Drill(std::move(location), location.second->subtype.get());
+        if (location.second->subtype->type == TypeNodeType::SIMD) {
+            // Compute swizzle indices
+            std::vector<int> swizzle_indices;
+            for (const auto& component : field->name) {
+                if (component == 'x')
+                    swizzle_indices.push_back(0);
+                else if (component == 'y')
+                    swizzle_indices.push_back(1);
+                else if (component == 'z')
+                    swizzle_indices.push_back(2);
+                else if (component == 'w')
+                    swizzle_indices.push_back(3);
+                else
+                    throw std::runtime_error("Invalid SIMD component: " + std::string(1, component));
+            }
+            auto result_size = swizzle_indices.size();
+
+            //load vector
+            auto load = builder_->CreateLoad(GenerateType(location.second->subtype.get()), location.first);
+            auto vecType = location.second->subtype.get();
+
+            if (result_size == 1) {
+                auto result = builder_->CreateExtractElement(load, swizzle_indices[0]);
+
+                auto res = std::pair(result, UniqueCast<TypeNode>(vecType->subtype->Clone()));
+                return Drill(std::move(res), expected);
+            }
+
+            auto swizzle = builder_->CreateShuffleVector(load, PoisonValue::get(GenerateType(vecType)), swizzle_indices);
+            //Generate the new T<N> type
+            auto newType = UniqueCast<TypeNode>(vecType->Clone());
+            newType->capacity = std::make_unique<IntegerNode>(result_size);
+
+            return {swizzle, std::move(newType)};
+        }
+        return Drill(GenerateLValue(field), expected);
+    }
     throw std::runtime_error("Unsupported expression type");
 }
 
@@ -662,6 +726,79 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
     }
     if (const auto address = is<AddressNode>(get)) {
         return GenerateLValue(address->target.get());
+    }
+    if (const auto index = is<IndexNode>(get)) {
+        auto location = GenerateLValue(index->data.get());
+        while (location.second->subtype->Pointer())
+            location = Drill(std::move(location), location.second->subtype.get());
+        auto index_value = GenerateRValue(index->index.get(), nullptr);
+
+        if (!location.second->subtype->Indexable())
+            throw std::runtime_error("Index operation not supported on non-indexable type");
+
+        auto dereference_type = location.second->subtype->subtype.get();
+
+        //TODO: note for later, GEP may confuse the optimizer.
+
+        auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(dereference_type->Clone()));
+
+        auto element_size = EvaluateSize(location.second->subtype->subtype.get());
+        auto size_val = ConstantInt::get(*context_, APInt(64, element_size));
+        auto element_ptr = builder_->CreateGEP(GenerateType(dereference_type), location.first, {index_value.first});
+        return {element_ptr, std::move(result_ptr_type)};
+    }
+    if (const auto field = is<FieldNode>(get)) {
+        auto location = GenerateLValue(field->object.get());
+
+        while (location.second->subtype->Pointer())
+            location = Drill(std::move(location), location.second->subtype.get());
+
+        if (location.second->subtype->type == TypeNodeType::SIMD) {
+            // Compute swizzle indices
+            std::vector<int> swizzle_indices;
+            for (const auto& component : field->name) {
+                if (component == 'x')
+                    swizzle_indices.push_back(0);
+                else if (component == 'y')
+                    swizzle_indices.push_back(1);
+                else if (component == 'z')
+                    swizzle_indices.push_back(2);
+                else if (component == 'w')
+                    swizzle_indices.push_back(3);
+                else
+                    throw std::runtime_error("Invalid SIMD component: " + std::string(1, component));
+            }
+            auto result_size = swizzle_indices.size();
+
+            //load vector
+            auto vec_type = location.second->subtype.get();
+            auto elementType = vec_type->subtype.get();
+
+            if (result_size == 1) {
+                //getelementptr
+
+                auto element_ptr = builder_->CreateGEP(GenerateType(elementType), location.first, {builder_->getInt32(swizzle_indices[0])});
+                auto ptr = std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(elementType->Clone()));
+                auto res = std::pair(element_ptr, std::move(ptr));
+                return res;
+            }
+
+            auto alloc_type = std::make_unique<TypeNode>(TypeNodeType::SIMD, std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(vec_type->subtype->Clone())), std::make_unique<IntegerNode>(result_size));
+            auto alloc = builder_->CreateAlloca(GenerateType(alloc_type.get()), nullptr);
+
+            // get individual elements
+            for (auto i = 0; i < result_size; i++) {
+                auto element_ptr = builder_->CreateGEP(GenerateType(elementType), location.first, {builder_->getInt32(swizzle_indices[i])});
+                auto dest_ptr = builder_->CreateGEP(GenerateType(alloc_type.get()), alloc, {builder_->getInt32(i)});
+                builder_->CreateStore(element_ptr, dest_ptr);
+            }
+
+            //load it
+            auto load = builder_->CreateLoad(GenerateType(alloc_type.get()), alloc);
+
+            return {load, std::move(alloc_type)};
+        }
+        throw std::runtime_error("Field access not supported yet");
     }
     throw std::runtime_error("Unsupported expression type");
 }

@@ -35,54 +35,6 @@ bool TypeNode::Pointer() const {
     return type == TypeNodeType::BORROW || type == TypeNodeType::OWNER;
 }
 
-size_t TypeNode::Size() const {
-    switch (type) {
-        case TypeNodeType::BOOL:
-            return 1;
-        case TypeNodeType::VOID:
-            return 0;
-        case TypeNodeType::BORROW:
-            return 0;
-        case TypeNodeType::OWNER:
-            return 0;
-        case TypeNodeType::FUNCTION:
-            return 0;
-        case TypeNodeType::OPTIONAL:
-            return 0;
-        case TypeNodeType::ARRAY:
-            return 0;
-        case TypeNodeType::MAP:
-            return 0;
-        case TypeNodeType::SIMD:
-            return 0;
-        case TypeNodeType::TUPLE:
-            return 0;
-        case TypeNodeType::I8:
-            return 1;
-        case TypeNodeType::I16:
-            return 2;
-        case TypeNodeType::I32:
-            return 4;
-        case TypeNodeType::I64:
-            return 8;
-        case TypeNodeType::U8:
-            return 1;
-        case TypeNodeType::U16:
-            return 2;
-        case TypeNodeType::U32:
-            return 4;
-        case TypeNodeType::U64:
-            return 8;
-        case TypeNodeType::F32:
-            return 4;
-        case TypeNodeType::F64:
-            return 8;
-        case TypeNodeType::TYPE_COUNT:
-            return 0;
-    }
-    return 0;
-}
-
 bool TypeNode::Equal(const TypeNode* other, bool borrowConversion) const {
     if (other == nullptr || type != other->type) {
         if (!borrowConversion) {
@@ -98,4 +50,8 @@ bool TypeNode::Equal(const TypeNode* other, bool borrowConversion) const {
         return subtype == nullptr && other->subtype == nullptr;
     }
     return subtype->Equal(other->subtype.get(), borrowConversion); // TODO: handle capacity
+}
+
+bool TypeNode::Indexable() {
+    return type == TypeNodeType::ARRAY || type == TypeNodeType::MAP || type == TypeNodeType::TUPLE || type == TypeNodeType::SIMD;
 }

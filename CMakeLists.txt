@@ -85,7 +85,7 @@ find_package(LLVM 18.1.8 REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-target_include_directories(ngc PRIVATE ${LLVM_INCLUDE_DIRS})
+target_include_directories(ngc PRIVATE ${LLVM_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(ngc PRIVATE ${LLVM_DEFINITIONS})
 
 llvm_map_components_to_libnames(LLVM_LIBS

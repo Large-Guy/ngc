@@ -5,7 +5,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 
-#include "../ast/nodes/variable_node.h"
+#include "ast/nodes/variable_node.h"
 #include "shared/Scope.h"
 
 using namespace llvm;
@@ -14,9 +14,9 @@ class LLVMBackend : public Backend {
 public:
     void Generate(std::vector<std::unique_ptr<AstNode> > nodes) override;
 
-    int64_t Evaluate(ExpressionNode* unique);
+    std::unique_ptr<TypeNode> EvaluateRType(AstNode* get);
 
-    std::unique_ptr<TypeNode> EvaluateType();
+    std::unique_ptr<TypeNode> EvaluateLType(AstNode* get);
 
     Type* GenerateType(const TypeNode* type);
 

@@ -2,8 +2,8 @@
 #define NGC_BACKEND_H
 #include <vector>
 
-#include "../ast/ast_node.h"
-#include "../ast/nodes/function_node.h"
+#include "ast/ast_node.h"
+#include "ast/nodes/function_node.h"
 
 
 class Backend {
@@ -17,6 +17,10 @@ protected:
     static constexpr T* is(U* object) {
         return dynamic_cast<T*>(object);
     }
+
+    int64_t EvaluateInt(ExpressionNode* unique) const;
+
+    size_t EvaluateSize(const TypeNode* type_node) const;
 };
 
 

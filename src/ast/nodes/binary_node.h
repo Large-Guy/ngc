@@ -10,7 +10,6 @@ enum class BinaryNodeType {
     EXPONENT, MODULO,
     BITWISE_OR, BITWISE_XOR, BITWISE_AND, BITWISE_LEFT, BITWISE_RIGHT,
     GREATER, GREATER_EQUAL, LESS, LESS_EQUAL, EQUAL, NOT_EQUAL, AND, OR,
-    INDEX
 };
 
 class BinaryNode : public ExpressionNode {
