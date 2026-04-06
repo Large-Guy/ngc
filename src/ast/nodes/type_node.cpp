@@ -2,16 +2,23 @@
 #include "../../memory_utils.h"
 
 TypeNode::TypeNode(TypeNodeType type, std::unique_ptr<TypeNode> subtype,
-                   std::unique_ptr<ExpressionNode> capacity) : type(type), subtype(std::move(subtype)),
+                   std::unique_ptr<ExpressionNode> capacity) : type(type), subtype(),
                                                                capacity(std::move(capacity)) {
+    if (subtype != nullptr)
+        this->subtype.push_back(std::move(subtype));
+}
+
+TypeNode::TypeNode(TypeNodeType type, std::vector<std::unique_ptr<TypeNode>> subtype,
+    std::unique_ptr<ExpressionNode> capacity) : type(type), subtype(std::move(subtype)), capacity(std::move(capacity)) {
 }
 
 std::unique_ptr<AstNode> TypeNode::Clone() const {
-    std::unique_ptr<TypeNode> sub = nullptr;
-    if (subtype != nullptr) {
-        sub = UniqueCast<TypeNode>(subtype->Clone());
+    std::vector<std::unique_ptr<TypeNode> > types;
+
+    for (auto& s: subtype) {
+        types.push_back(UniqueCast<TypeNode>(s->Clone()));
     }
-    return std::make_unique<TypeNode>(type, std::move(sub),
+    return std::make_unique<TypeNode>(type, std::move(types),
                                       capacity ? UniqueCast<ExpressionNode>(capacity->Clone()) : nullptr);
 }
 
@@ -46,12 +53,18 @@ bool TypeNode::Equal(const TypeNode* other, bool borrowConversion) const {
             return false;
         }
     }
-    if (subtype == nullptr || other->subtype == nullptr) {
-        return subtype == nullptr && other->subtype == nullptr;
+    if (subtype.empty() || other->subtype.empty()) {
+        return subtype.empty()  && other->subtype.empty();
     }
-    return subtype->Equal(other->subtype.get(), borrowConversion); // TODO: handle capacity
+    if (subtype.size() != other->subtype.size())
+        return false;
+    for (auto i = 0; i < subtype.size(); i++) {
+        if (!subtype[i]->Equal(other->subtype[i].get(), borrowConversion))
+            return false;
+    }
+    return true; // TODO: handle capacity
 }
 
-bool TypeNode::Indexable() {
+bool TypeNode::Indexable() const {
     return type == TypeNodeType::ARRAY || type == TypeNodeType::MAP || type == TypeNodeType::TUPLE || type == TypeNodeType::SIMD;
 }

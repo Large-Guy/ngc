@@ -1,12 +1,14 @@
 #ifndef NGC_TYPENODE_H
 #define NGC_TYPENODE_H
 #include <memory>
+#include <vector>
 
 #include "expression_node.h"
 #include "../ast_node.h"
 
 enum class TypeNodeType {
     VOID,
+    STRUCT,
     BORROW,
     OWNER,
     OPTIONAL,
@@ -39,6 +41,9 @@ public:
     TypeNode(TypeNodeType type, std::unique_ptr<TypeNode> subtype = nullptr,
              std::unique_ptr<ExpressionNode> capacity = nullptr);
 
+    TypeNode(TypeNodeType type, std::vector<std::unique_ptr<TypeNode>> subtype,
+        std::unique_ptr<ExpressionNode> capacity = nullptr);
+
     std::unique_ptr<AstNode> Clone() const override;
 
     bool Integer() const;
@@ -53,10 +58,10 @@ public:
 
     bool Equal(const TypeNode* other, bool borrowConversion) const;
 
-    bool Indexable();
+    bool Indexable() const;
 
     TypeNodeType type;
-    std::unique_ptr<TypeNode> subtype;
+    std::vector<std::unique_ptr<TypeNode>> subtype;
     std::unique_ptr<ExpressionNode> capacity;
 };
 

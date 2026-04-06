@@ -30,6 +30,7 @@
 #include "ast/nodes/literal_node.h"
 #include "ast/nodes/module_node.h"
 #include "ast/nodes/return_node.h"
+#include "ast/nodes/struct_node.h"
 #include "ast/nodes/tuple_node.h"
 #include "ast/nodes/unary_node.h"
 #include "ast/nodes/variable_node.h"
@@ -143,6 +144,14 @@ Type* LLVMBackend::GenerateType(const TypeNode* type) {
     switch (type->type) {
         case TypeNodeType::VOID:
             return Type::getVoidTy(*context_);
+        case TypeNodeType::STRUCT: {
+            auto subtypes = std::vector<Type*>();
+            for (const auto& subtype: type->subtype) {
+                subtypes.push_back(GenerateType(subtype.get()));
+            }
+            auto structure = StructType::get(*context_, subtypes);
+            return structure;
+        }
         case TypeNodeType::BORROW:
             return PointerType::get(*context_, 0);
         case TypeNodeType::OWNER:
@@ -154,7 +163,7 @@ Type* LLVMBackend::GenerateType(const TypeNode* type) {
         case TypeNodeType::MAP:
             throw std::runtime_error("Map types are not supported");
         case TypeNodeType::SIMD:
-            return FixedVectorType::get(GenerateType(type->subtype.get()), EvaluateInt(type->capacity.get()));
+            return FixedVectorType::get(GenerateType(type->subtype[0].get()), EvaluateInt(type->capacity.get()));
         case TypeNodeType::TUPLE:
             throw std::runtime_error("Tuple types are not supported");
         case TypeNodeType::FUNCTION:
@@ -194,7 +203,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Drill(std::pair<Value
     }
     if (value.second != nullptr && (value.second->type == TypeNodeType::BORROW || value.second->type ==
                                     TypeNodeType::OWNER)) {
-        auto new_type = std::move(value.second->subtype);
+        auto new_type = std::move(value.second->subtype[0]);
         return Drill(std::pair(builder_->CreateLoad(GenerateType(new_type.get()), value.first), std::move(new_type)),
                      expected);
     }
@@ -246,7 +255,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Cast(std::pair<Value*
         if (value.second->type == TypeNodeType::BORROW && type->type == TypeNodeType::OWNER) {
             throw std::runtime_error("Cannot cast borrow to owner");
         }
-        if (value.second->subtype->Equal(type->subtype.get(), true)) {
+        if (value.second->subtype[0]->Equal(type->subtype[0].get(), true)) {
             return {value.first, UniqueCast<TypeNode>(type->Clone())};
         }
     }
@@ -298,6 +307,9 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         if (expected->type == TypeNodeType::VOID)
             return {};
         return Cast(std::move(last), expected);
+    }
+    if (auto structure = is<StructNode>(get)) {
+        auto type = GenerateType(structure->type.get());
     }
     if (auto variable = is<VariableNode>(get)) {
         if (variable->type == nullptr) {
@@ -440,7 +452,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             size += EvaluateSize(value.second.get());
 
         }
-        auto arr = builder_->CreateAlloca();
+        //auto arr = builder_->CreateAlloca();
 
         return {nullptr, nullptr};
     }
@@ -466,10 +478,10 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
     if (const auto assign = is<AssignNode>(get)) {
         auto target = GenerateLValue(assign->target.get());
         auto type_target = target.second.get();
-        while (type_target->subtype->Pointer())
-            type_target = type_target->subtype.get();
+        while (type_target->subtype[0]->Pointer())
+            type_target = type_target->subtype[0].get();
         target = Drill(std::move(target), type_target);
-        auto value = GenerateRValue(assign->value.get(), target.second->subtype.get());
+        auto value = GenerateRValue(assign->value.get(), target.second->subtype[0].get());
         builder_->CreateStore(value.first, target.first);
         return value;
     }
@@ -642,7 +654,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
     if (const auto heap = is<HeapNode>(get)) {
         if (expected == nullptr)
             throw std::runtime_error("Heap nodes need expected types");
-        auto x = GenerateRValue(heap->expression.get(), expected->subtype.get());
+        auto x = GenerateRValue(heap->expression.get(), expected->subtype[0].get());
         auto type = GenerateType(x.second.get());
         auto ptr = builder_->CreateMalloc(Type::getInt64Ty(*context_), type,
                                           ConstantInt::get(*context_, APInt(64, EvaluateSize(x.second.get()))), nullptr);
@@ -669,16 +681,16 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             args.push_back(GenerateRValue(arg.get(), expect.get()).first);
         }
         auto val = builder_->CreateCall(FunctionCallee(function->getFunctionType(), function), args);
-        return {val, UniqueCast<TypeNode>(callee.second->subtype->Clone())};
+        return {val, UniqueCast<TypeNode>(callee.second->subtype[0]->Clone())};
     }
     if (const auto index = is<IndexNode>(get)) {
         return Drill(GenerateLValue(index), expected);
     }
     if (const auto field = is<FieldNode>(get)) {
         auto location = GenerateLValue(field->object.get());
-        while (location.second->subtype->Pointer())
-            location = Drill(std::move(location), location.second->subtype.get());
-        if (location.second->subtype->type == TypeNodeType::SIMD) {
+        while (location.second->subtype[0]->Pointer())
+            location = Drill(std::move(location), location.second->subtype[0].get());
+        if (location.second->subtype[0]->type == TypeNodeType::SIMD) {
             // Compute swizzle indices
             std::vector<int> swizzle_indices;
             for (const auto& component : field->name) {
@@ -696,13 +708,13 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             auto result_size = swizzle_indices.size();
 
             //load vector
-            auto load = builder_->CreateLoad(GenerateType(location.second->subtype.get()), location.first);
-            auto vecType = location.second->subtype.get();
+            auto load = builder_->CreateLoad(GenerateType(location.second->subtype[0].get()), location.first);
+            auto vecType = location.second->subtype[0].get();
 
             if (result_size == 1) {
                 auto result = builder_->CreateExtractElement(load, swizzle_indices[0]);
 
-                auto res = std::pair(result, UniqueCast<TypeNode>(vecType->subtype->Clone()));
+                auto res = std::pair(result, UniqueCast<TypeNode>(vecType->subtype[0]->Clone()));
                 return Drill(std::move(res), expected);
             }
 
@@ -729,20 +741,20 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
     }
     if (const auto index = is<IndexNode>(get)) {
         auto location = GenerateLValue(index->data.get());
-        while (location.second->subtype->Pointer())
-            location = Drill(std::move(location), location.second->subtype.get());
+        while (location.second->subtype[0]->Pointer())
+            location = Drill(std::move(location), location.second->subtype[0].get());
         auto index_value = GenerateRValue(index->index.get(), nullptr);
 
-        if (!location.second->subtype->Indexable())
+        if (!location.second->subtype[0]->Indexable())
             throw std::runtime_error("Index operation not supported on non-indexable type");
 
-        auto dereference_type = location.second->subtype->subtype.get();
+        auto dereference_type = location.second->subtype[0]->subtype[0].get();
 
         //TODO: note for later, GEP may confuse the optimizer.
 
         auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(dereference_type->Clone()));
 
-        auto element_size = EvaluateSize(location.second->subtype->subtype.get());
+        auto element_size = EvaluateSize(location.second->subtype[0]->subtype[0].get());
         auto size_val = ConstantInt::get(*context_, APInt(64, element_size));
         auto element_ptr = builder_->CreateGEP(GenerateType(dereference_type), location.first, {index_value.first});
         return {element_ptr, std::move(result_ptr_type)};
@@ -750,10 +762,10 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
     if (const auto field = is<FieldNode>(get)) {
         auto location = GenerateLValue(field->object.get());
 
-        while (location.second->subtype->Pointer())
-            location = Drill(std::move(location), location.second->subtype.get());
+        while (location.second->subtype[0]->Pointer())
+            location = Drill(std::move(location), location.second->subtype[0].get());
 
-        if (location.second->subtype->type == TypeNodeType::SIMD) {
+        if (location.second->subtype[0]->type == TypeNodeType::SIMD) {
             // Compute swizzle indices
             std::vector<int> swizzle_indices;
             for (const auto& component : field->name) {
@@ -771,8 +783,8 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
             auto result_size = swizzle_indices.size();
 
             //load vector
-            auto vec_type = location.second->subtype.get();
-            auto elementType = vec_type->subtype.get();
+            auto vec_type = location.second->subtype[0].get();
+            auto elementType = vec_type->subtype[0].get();
 
             if (result_size == 1) {
                 //getelementptr
@@ -783,7 +795,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
                 return res;
             }
 
-            auto alloc_type = std::make_unique<TypeNode>(TypeNodeType::SIMD, std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(vec_type->subtype->Clone())), std::make_unique<IntegerNode>(result_size));
+            auto alloc_type = std::make_unique<TypeNode>(TypeNodeType::SIMD, std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(vec_type->subtype[0]->Clone())), std::make_unique<IntegerNode>(result_size));
             auto alloc = builder_->CreateAlloca(GenerateType(alloc_type.get()), nullptr);
 
             // get individual elements
@@ -826,8 +838,7 @@ void LLVMBackend::GeneratePrototype(FunctionNode* function) {
 
     signatures[func] = function;
 
-    auto type = std::make_unique<TypeNode>(TypeNodeType::FUNCTION);
-    type->subtype = UniqueCast<TypeNode>(function->type->Clone());
+    auto type = std::make_unique<TypeNode>(TypeNodeType::FUNCTION, UniqueCast<TypeNode>(function->type->Clone()));
 
     scope_.Declare(function->name, func, std::move(type));
 }

@@ -78,6 +78,8 @@ add_executable(ngc src/main.cpp
         src/ast/nodes/AddressNode.h
         src/ast/nodes/LockNode.cpp
         src/ast/nodes/LockNode.h
+        src/ast/nodes/struct_node.cpp
+        src/ast/nodes/struct_node.h
 )
 
 find_package(LLVM 18.1.8 REQUIRED CONFIG)

@@ -9,12 +9,12 @@
 
 class DefinitionNode : public StatementNode {
 public:
-    std::unique_ptr<TypeNode> type;
-    std::string name;
-
     DefinitionNode(std::string name, std::unique_ptr<TypeNode> type);
 
     std::unique_ptr<AstNode> Clone() const override;
+
+    std::string name;
+    std::unique_ptr<TypeNode> type;
 };
 
 

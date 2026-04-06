@@ -32,6 +32,7 @@
 #include "ast/nodes/LockNode.h"
 #include "ast/nodes/module_node.h"
 #include "ast/nodes/return_node.h"
+#include "ast/nodes/struct_node.h"
 #include "ast/nodes/while_node.h"
 
 Parser::Parser(std::vector<Lexer> lexer) : lexers_(std::move(lexer)) {
@@ -581,6 +582,26 @@ std::unique_ptr<TypeNode> Parser::BuildType(std::unique_ptr<TypeNode> base) {
     return base;
 }
 
+std::unique_ptr<StructNode> Parser::StructDeclaration() {
+    Consume(TokenType::IDENTIFIER, "Expected struct name");
+    auto name = previous_.value;
+
+    Consume(TokenType::LEFT_BRACE, "Expected '{'");
+    auto type = std::make_unique<TypeNode>(TypeNodeType::STRUCT);
+    std::vector<std::string> names;
+    while (MatchType()) {
+        auto definition = Declaration();
+        type->subtype.push_back(std::move(definition->type));
+        names.push_back(definition->name);
+
+        Consume(TokenType::SEMICOLON, "Expected ';' after struct field");
+    }
+    Consume(TokenType::RIGHT_BRACE, "Expected '}'");
+
+    auto node = std::make_unique<StructNode>(name, std::move(type), std::move(names));
+    return node;
+}
+
 std::unique_ptr<StatementNode> Parser::Statement() {
     if (Match(TokenType::MODULE)) {
         module_ = ModuleStatement();
@@ -588,6 +609,9 @@ std::unique_ptr<StatementNode> Parser::Statement() {
     }
     if (MatchType()) {
         return DeclarationStatement();
+    }
+    if (Match(TokenType::STRUCT)) {
+        return StructDeclaration();
     }
     if (Match(TokenType::LEFT_BRACE)) {
         return BlockStatement();

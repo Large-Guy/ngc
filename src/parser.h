@@ -7,6 +7,7 @@
 #include "ast/nodes/definition_node.h"
 #include "ast/nodes/expression_node.h"
 #include "ast/nodes/module_node.h"
+#include "ast/nodes/struct_node.h"
 
 
 class TypeNode;
@@ -62,6 +63,7 @@ private:
 
     // Statements
 
+    std::unique_ptr<StructNode> StructDeclaration();
 
     std::unique_ptr<StatementNode> Statement();
 

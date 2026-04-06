@@ -1,40 +1,12 @@
 module program;
 
-i32 global;
-
-f64 sqrt(f64 x)
+struct Entity
 {
-    u64 filter1 = 9218868437227405312;
-    u64 filter2 = 4503599627370495;
-    u64 bias = 4607182418800017408;
-
-    u64 x_bits = x as! u64;
-    u64 mantissa = x_bits & filter2;
-    u64 result_bits = ((((x_bits & filter1) + bias) >> 1) & filter1) | mantissa;
-
-    f64 result = result_bits as! f64;
-
-    result = 0.5ff * (result + x * (1ff / result));
-
-    return result;
-}
-
-f64 length(f64<2> x)
-{
-    return sqrt(x.x * x.x + x.y * x.y);
-}
-
-f64<2> normalize(f64<2> x)
-{
-    f64 length = length(x);
-    f64<2> result = x;
-    result.x /= length;
-    result.y /= length;
-    return result;
+    u32 id;
+    f32<2> position;
 }
 
 i32 main()
 {
-    f64<2> point = (0ff, 3ff);
-    return length(point) as i32;
+    return 24;
 }
