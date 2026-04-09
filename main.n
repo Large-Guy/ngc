@@ -2,6 +2,9 @@ module program;
 
 i32 main()
 {
-    let infer_simd = (1,2,3);
-    return infer_simd[2];
+    let a = (1, 2, 3);
+    let b = (4, 5, 6);
+    let c = (a.x * b.x, a.y * b.y, a.z * b.z);
+    let dot_product = c.x + c.y + c.z;
+    return dot_product;
 }
