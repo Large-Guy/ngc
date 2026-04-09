@@ -64,7 +64,13 @@ bool TypeNode::Equal(const TypeNode* other, bool borrowConversion) const {
         if (!subtype[i]->Equal(other->subtype[i].get(), borrowConversion))
             return false;
     }
-    if (Backend::EvaluateInt(capacity.get()) != Backend::EvaluateInt(other->capacity.get())) {
+    if (capacity != nullptr) {
+        if (other->capacity != nullptr) {
+            if (Backend::EvaluateInt(capacity.get()) !=
+                Backend::EvaluateInt(other->capacity.get())) {
+                return false;
+            }
+        }
         return false;
     }
     return true; // TODO: handle capacity
