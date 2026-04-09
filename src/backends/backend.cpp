@@ -81,8 +81,13 @@ size_t Backend::EvaluateSize(const TypeNode* type_node) const {
             throw std::runtime_error("Map types are not supported");
         case TypeNodeType::SIMD:
             return EvaluateSize(type_node->subtype[0].get()) * EvaluateInt(type_node->capacity.get());
-        case TypeNodeType::TUPLE:
-            throw std::runtime_error("Tuple types are not supported");
+        case TypeNodeType::TUPLE: {
+            size_t total = 0;
+            for (auto& subtype: type_node->subtype) {
+                total += EvaluateSize(subtype.get());
+            }
+            return total;
+        }
         case TypeNodeType::I8:
             return 1;
         case TypeNodeType::I16:

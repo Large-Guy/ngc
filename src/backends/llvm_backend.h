@@ -5,6 +5,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 
+#include "ast/nodes/struct_node.h"
 #include "ast/nodes/variable_node.h"
 #include "shared/Scope.h"
 
@@ -18,7 +19,7 @@ public:
 
     std::unique_ptr<TypeNode> EvaluateLType(AstNode* get);
 
-    Type* GenerateType(const TypeNode* type);
+    Type* GenerateType(const TypeNode* type, const std::string& name = "");
 
     std::pair<Value*, std::unique_ptr<TypeNode> > Drill(std::pair<Value*, std::unique_ptr<TypeNode> > value,
                                                         const TypeNode* type);
@@ -39,6 +40,8 @@ public:
     void GenerateFunction(FunctionNode* function);
 
     void GenerateVariable(VariableNode* variable);
+
+    void GenerateStructure(StructNode* structure);
 
 private:
     std::unique_ptr<LLVMContext> context_;

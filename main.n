@@ -1,12 +1,7 @@
 module program;
 
-struct Entity
-{
-    u32 id;
-    f32<2> position;
-}
-
 i32 main()
 {
-    return 24;
+    let infer_simd = (1,2,3);
+    return infer_simd[2];
 }

@@ -74,6 +74,8 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
                     GeneratePrototype(function);
                 } else if (const auto variable = is<VariableNode>(statement.get())) {
                     GenerateVariable(variable);
+                } else if (const auto structure = is<StructNode>(statement.get())) {
+                    GenerateStructure(structure);
                 }
             }
 
@@ -132,15 +134,13 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
 
 std::unique_ptr<TypeNode> LLVMBackend::EvaluateRType(AstNode* get) {
     if (auto identifier = is<IdentifierNode>(get)) {
-
     }
 }
 
-std::unique_ptr<TypeNode> LLVMBackend::EvaluateLType(AstNode *get) {
-
+std::unique_ptr<TypeNode> LLVMBackend::EvaluateLType(AstNode* get) {
 }
 
-Type* LLVMBackend::GenerateType(const TypeNode* type) {
+Type* LLVMBackend::GenerateType(const TypeNode* type, const std::string& name) {
     switch (type->type) {
         case TypeNodeType::VOID:
             return Type::getVoidTy(*context_);
@@ -149,7 +149,15 @@ Type* LLVMBackend::GenerateType(const TypeNode* type) {
             for (const auto& subtype: type->subtype) {
                 subtypes.push_back(GenerateType(subtype.get()));
             }
-            auto structure = StructType::get(*context_, subtypes);
+            StructType* structure = nullptr;
+            if (name.empty()) {
+                structure = StructType::get(*context_, subtypes); // declaration and definition
+            } else {
+                structure = StructType::getTypeByName(*context_, name); // definition
+            }
+            structure->setBody(subtypes);
+            if (!name.empty())
+                structure->setName(name);
             return structure;
         }
         case TypeNodeType::BORROW:
@@ -164,8 +172,14 @@ Type* LLVMBackend::GenerateType(const TypeNode* type) {
             throw std::runtime_error("Map types are not supported");
         case TypeNodeType::SIMD:
             return FixedVectorType::get(GenerateType(type->subtype[0].get()), EvaluateInt(type->capacity.get()));
-        case TypeNodeType::TUPLE:
-            throw std::runtime_error("Tuple types are not supported");
+        case TypeNodeType::TUPLE: {
+            auto subtypes = std::vector<Type*>();
+            for (const auto& subtype: type->subtype) {
+                subtypes.push_back(GenerateType(subtype.get()));
+            }
+            auto structure = StructType::get(*context_, subtypes);
+            return structure;
+        }
         case TypeNodeType::FUNCTION:
             return PointerType::get(*context_, 0);
         case TypeNodeType::BOOL:
@@ -308,9 +322,6 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             return {};
         return Cast(std::move(last), expected);
     }
-    if (auto structure = is<StructNode>(get)) {
-        auto type = GenerateType(structure->type.get());
-    }
     if (auto variable = is<VariableNode>(get)) {
         if (variable->type == nullptr) {
             //inferred
@@ -445,16 +456,86 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
                               std::make_unique<TypeNode>(TypeNodeType::F64)), expected);
     }
     if (const auto tuple = is<TupleNode>(get)) {
-        std::vector<std::pair<Value*, std::unique_ptr<TypeNode>>> values;
+        if (expected != nullptr && expected->type == TypeNodeType::SIMD) {
+            //assume we're gonna be defining a SIMD array
+            std::vector<Value*> values;
+            size_t size = 0;
+
+            auto simd_type = expected->subtype[0].get();
+
+            for (const auto& element: tuple->elements) {
+                auto value = GenerateRValue(element.get(), simd_type);
+                size += EvaluateSize(value.second.get());
+                values.push_back(value.first);
+            }
+
+            auto simd_node = std::make_unique<TypeNode>(TypeNodeType::SIMD,
+                                                        UniqueCast<TypeNode>(simd_type->Clone()),
+                                                        std::make_unique<IntegerNode>(values.size()));
+            auto type = GenerateType(simd_node.get());
+            auto arr = builder_->CreateAlloca(type);
+
+            for (size_t i = 0; i < values.size(); i++) {
+                auto val = values[i];
+                auto elem_ptr = builder_->CreateGEP(GenerateType(simd_type), arr, {builder_->getInt32(i)});
+                builder_->CreateStore(val, elem_ptr);
+            }
+
+            //load
+            auto load = builder_->CreateLoad(type, arr);
+
+            return {load, std::move(simd_node)};
+        }
+
+        std::vector<Value*> values;
+        std::vector<std::unique_ptr<TypeNode> > types;
+        bool identical_types = true;
         size_t size = 0;
         for (const auto& element: tuple->elements) {
             auto value = GenerateRValue(element.get(), nullptr);
+            if (!types.empty()) {
+                if (!types[0]->Equal(value.second.get(), true)) {
+                    identical_types = false;
+                }
+            }
             size += EvaluateSize(value.second.get());
-
+            values.push_back(value.first);
+            types.push_back(std::move(value.second));
         }
-        //auto arr = builder_->CreateAlloca();
 
-        return {nullptr, nullptr};
+        if (identical_types && expected == nullptr) {
+            //prefer a simd type to a tuple
+            auto simd_node = std::make_unique<TypeNode>(TypeNodeType::SIMD,
+                                                        UniqueCast<TypeNode>(types[0]->Clone()),
+                                                        std::make_unique<IntegerNode>(values.size()));
+            auto type = GenerateType(simd_node.get());
+            auto arr = builder_->CreateAlloca(type);
+
+            for (size_t i = 0; i < values.size(); i++) {
+                auto val = values[i];
+                auto elem_ptr = builder_->CreateGEP(GenerateType(types[0].get()), arr, {builder_->getInt32(i)});
+                builder_->CreateStore(val, elem_ptr);
+            }
+
+            //load
+            auto load = builder_->CreateLoad(type, arr);
+
+            return {load, std::move(simd_node)};
+        }
+        auto tuple_node = std::make_unique<TypeNode>(TypeNodeType::TUPLE, std::move(types));
+        auto type = GenerateType(tuple_node.get());
+        auto arr = builder_->CreateAlloca(type);
+
+        for (size_t i = 0; i < values.size(); i++) {
+            auto val = values[i];
+            auto elem_ptr = builder_->CreateGEP(type, arr, {builder_->getInt32(0), builder_->getInt32(i)});
+            builder_->CreateStore(val, elem_ptr);
+        }
+
+        //load
+        auto load = builder_->CreateLoad(type, arr);
+
+        return {load, std::move(tuple_node)};
     }
     if (const auto literal = is<LiteralNode>(get)) {
         switch (literal->type) {
@@ -657,7 +738,8 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto x = GenerateRValue(heap->expression.get(), expected->subtype[0].get());
         auto type = GenerateType(x.second.get());
         auto ptr = builder_->CreateMalloc(Type::getInt64Ty(*context_), type,
-                                          ConstantInt::get(*context_, APInt(64, EvaluateSize(x.second.get()))), nullptr);
+                                          ConstantInt::get(*context_, APInt(64, EvaluateSize(x.second.get()))),
+                                          nullptr);
         builder_->CreateStore(x.first, ptr);
         return {ptr, UniqueCast<TypeNode>(expected->Clone())};
     }
@@ -693,7 +775,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         if (location.second->subtype[0]->type == TypeNodeType::SIMD) {
             // Compute swizzle indices
             std::vector<int> swizzle_indices;
-            for (const auto& component : field->name) {
+            for (const auto& component: field->name) {
                 if (component == 'x')
                     swizzle_indices.push_back(0);
                 else if (component == 'y')
@@ -718,7 +800,8 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
                 return Drill(std::move(res), expected);
             }
 
-            auto swizzle = builder_->CreateShuffleVector(load, PoisonValue::get(GenerateType(vecType)), swizzle_indices);
+            auto swizzle = builder_->
+                    CreateShuffleVector(load, PoisonValue::get(GenerateType(vecType)), swizzle_indices);
             //Generate the new T<N> type
             auto newType = UniqueCast<TypeNode>(vecType->Clone());
             newType->capacity = std::make_unique<IntegerNode>(result_size);
@@ -751,12 +834,25 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
         auto dereference_type = location.second->subtype[0]->subtype[0].get();
 
         //TODO: note for later, GEP may confuse the optimizer.
+        if (location.second->subtype[0]->type == TypeNodeType::SIMD) {
+            //simd's get loaded differently
+            auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW,
+                                                              UniqueCast<TypeNode>(dereference_type->Clone()));
 
-        auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(dereference_type->Clone()));
+            auto element_size = EvaluateSize(location.second->subtype[0]->subtype[0].get());
+            auto size_val = ConstantInt::get(*context_, APInt(64, element_size));
+            auto element_ptr = builder_->CreateGEP(GenerateType(dereference_type), location.first, {index_value.first});
+            return {element_ptr, std::move(result_ptr_type)};
+        }
+
+        //tuples get loaded differently
+        auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW,
+                                                          UniqueCast<TypeNode>(dereference_type->Clone()));
 
         auto element_size = EvaluateSize(location.second->subtype[0]->subtype[0].get());
         auto size_val = ConstantInt::get(*context_, APInt(64, element_size));
-        auto element_ptr = builder_->CreateGEP(GenerateType(dereference_type), location.first, {index_value.first});
+        auto element_ptr = builder_->CreateGEP(GenerateType(location.second->subtype[0].get()), location.first,
+                                               {builder_->getInt32(0), index_value.first});
         return {element_ptr, std::move(result_ptr_type)};
     }
     if (const auto field = is<FieldNode>(get)) {
@@ -768,7 +864,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
         if (location.second->subtype[0]->type == TypeNodeType::SIMD) {
             // Compute swizzle indices
             std::vector<int> swizzle_indices;
-            for (const auto& component : field->name) {
+            for (const auto& component: field->name) {
                 if (component == 'x')
                     swizzle_indices.push_back(0);
                 else if (component == 'y')
@@ -789,18 +885,24 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
             if (result_size == 1) {
                 //getelementptr
 
-                auto element_ptr = builder_->CreateGEP(GenerateType(elementType), location.first, {builder_->getInt32(swizzle_indices[0])});
+                auto element_ptr = builder_->CreateGEP(GenerateType(elementType), location.first,
+                                                       {builder_->getInt32(swizzle_indices[0])});
                 auto ptr = std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(elementType->Clone()));
                 auto res = std::pair(element_ptr, std::move(ptr));
                 return res;
             }
 
-            auto alloc_type = std::make_unique<TypeNode>(TypeNodeType::SIMD, std::make_unique<TypeNode>(TypeNodeType::BORROW, UniqueCast<TypeNode>(vec_type->subtype[0]->Clone())), std::make_unique<IntegerNode>(result_size));
+            auto alloc_type = std::make_unique<TypeNode>(TypeNodeType::SIMD,
+                                                         std::make_unique<TypeNode>(
+                                                             TypeNodeType::BORROW,
+                                                             UniqueCast<TypeNode>(vec_type->subtype[0]->Clone())),
+                                                         std::make_unique<IntegerNode>(result_size));
             auto alloc = builder_->CreateAlloca(GenerateType(alloc_type.get()), nullptr);
 
             // get individual elements
             for (auto i = 0; i < result_size; i++) {
-                auto element_ptr = builder_->CreateGEP(GenerateType(elementType), location.first, {builder_->getInt32(swizzle_indices[i])});
+                auto element_ptr = builder_->CreateGEP(GenerateType(elementType), location.first,
+                                                       {builder_->getInt32(swizzle_indices[i])});
                 auto dest_ptr = builder_->CreateGEP(GenerateType(alloc_type.get()), alloc, {builder_->getInt32(i)});
                 builder_->CreateStore(element_ptr, dest_ptr);
             }
@@ -919,4 +1021,9 @@ void LLVMBackend::GenerateVariable(VariableNode* variable) {
     auto ptr = std::make_unique<TypeNode>(TypeNodeType::OWNER, UniqueCast<TypeNode>(variable->type->Clone()));
 
     scope_.Declare(variable->name, gvar, std::move(ptr));
+}
+
+void LLVMBackend::GenerateStructure(StructNode* structure) {
+    auto type = StructType::get(*context_, false);
+    type->setName(structure->name);
 }
