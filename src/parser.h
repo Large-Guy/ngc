@@ -4,6 +4,7 @@
 
 #include "ast/ast_node.h"
 #include "lexer.h"
+#include "type_scope.h"
 #include "ast/nodes/definition_node.h"
 #include "ast/nodes/expression_node.h"
 #include "ast/nodes/module_node.h"
@@ -59,7 +60,7 @@ private:
 
     std::unique_ptr<TypeNode> NodeFromType(const Token& token);
 
-    std::unique_ptr<TypeNode> BuildType(std::unique_ptr<TypeNode> base);
+    std::unique_ptr<TypeNode> BuildType(std::unique_ptr<TypeNode> base, TypeScope* scope);
 
     // Statements
 
@@ -113,6 +114,9 @@ private:
 
     std::unordered_map<std::string, std::unique_ptr<ModuleNode> > modulesList_;
     ModuleNode* module_;
+    
+    std::unique_ptr<TypeScope> root;
+    TypeScope* currentScope;
 
     static std::unordered_map<TokenType, Parser::ParseRule> rules_;
 

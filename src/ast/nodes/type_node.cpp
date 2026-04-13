@@ -70,6 +70,7 @@ bool TypeNode::Equal(const TypeNode* other, bool borrowConversion) const {
                 Backend::EvaluateInt(other->capacity.get())) {
                 return false;
             }
+            return true;
         }
         return false;
     }

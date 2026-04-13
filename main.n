@@ -1,8 +1,19 @@
 module program;
 
+struct Chunk
+{
+    i32<2> position;
+    i16<16 * 16> tiles;
+}
+
+Chunk newChunk()
+{
+    Chunk chunk;
+    return chunk;
+}
+
 i32 main()
 {
-    f32<3> a = (1,2,3);
-    f32<3> b = a * (2,2,2);
-    return b[2] as i32;
+    Chunk* chunk = [newChunk()];
+    return 0;
 }

@@ -8,15 +8,13 @@
 #include "../ast_node.h"
 
 
-class ModuleNode : public StatementNode {
+class ModuleNode : public DefinitionNode {
 public:
-    ModuleNode(std::string path);
+    ModuleNode(std::string name);
 
     std::unique_ptr<AstNode> Clone() const override;
 
     ModuleNode* GetSubmodule(std::string name) const;
-
-    std::string path;
 
     std::vector<std::unique_ptr<StatementNode> > statements;
 };

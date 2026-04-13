@@ -154,7 +154,7 @@ public:
     }
 
     static std::unique_ptr<ExpressionNode> Lambda(Parser& parser, bool canAssign) {
-        auto return_type = parser.BuildType(parser.NodeFromType(parser.previous_));
+        auto return_type = parser.BuildType(parser.NodeFromType(parser.previous_), parser.currentScope);
         parser.Consume(TokenType::LEFT_PAREN, "Expected '('");
 
         std::vector<std::unique_ptr<DefinitionNode> > parameters;
@@ -181,7 +181,7 @@ public:
         bool reinterpret = parser.Match(TokenType::BANG);
         parser.Advance();
 
-        auto type = parser.BuildType(parser.NodeFromType(parser.previous_));
+        auto type = parser.BuildType(parser.NodeFromType(parser.previous_), parser.currentScope);
 
         if (reinterpret) {
             return std::make_unique<CastNode>(CastNodeType::REINTERPRET, std::move(type), std::move(left));
@@ -462,6 +462,8 @@ std::unordered_map<TokenType, Parser::ParseRule> Parser::BuildRules() {
 };
 
 std::vector<std::unique_ptr<AstNode> > Parser::Parse() {
+    root = std::make_unique<TypeScope>("", nullptr);
+    currentScope = root.get();
     std::vector<std::unique_ptr<AstNode> > nodes = {};
     for (auto& lexer: lexers_) {
         lexer_ = &lexer;
@@ -548,6 +550,10 @@ std::unique_ptr<TypeNode> Parser::NodeFromType(const Token& token) {
             return std::make_unique<TypeNode>(TypeNodeType::BOOL);
         case TokenType::LET:
             return nullptr;
+        case TokenType::IDENTIFIER: {
+            //TODO: Struct definitions
+            return UniqueCast<TypeNode>(currentScope->LookupSubtype(token.value)->type->Clone());
+        }
         default: {
             Error(token, "Unsupported type");
             return nullptr;
@@ -555,29 +561,36 @@ std::unique_ptr<TypeNode> Parser::NodeFromType(const Token& token) {
     }
 }
 
-std::unique_ptr<TypeNode> Parser::BuildType(std::unique_ptr<TypeNode> base) {
+std::unique_ptr<TypeNode> Parser::BuildType(std::unique_ptr<TypeNode> base, TypeScope* scope) {
     if (Match(TokenType::LESS)) {
         auto size = Expression(Precedence::SHIFT);
         Consume(TokenType::GREATER, "Expected closing '>'");
         auto simd = std::make_unique<TypeNode>(TypeNodeType::SIMD, std::move(base), std::move(size));
-        return BuildType(std::move(simd));
+        return BuildType(std::move(simd), scope);
     }
     if (Match(TokenType::STAR)) {
         auto owner = std::make_unique<TypeNode>(TypeNodeType::OWNER, std::move(base));
-        return BuildType(std::move(owner));
+        return BuildType(std::move(owner), scope);
     }
     if (Match(TokenType::AND)) {
         auto borrow = std::make_unique<TypeNode>(TypeNodeType::BORROW, std::move(base));
-        return BuildType(std::move(borrow));
+        return BuildType(std::move(borrow), scope);
     }
     if (Match(TokenType::QUESTION)) {
         auto borrow = std::make_unique<TypeNode>(TypeNodeType::OPTIONAL, std::move(base));
-        return BuildType(std::move(borrow));
+        return BuildType(std::move(borrow), scope);
     }
     if (Match(TokenType::LEFT_BRACKET)) {
         Consume(TokenType::RIGHT_BRACKET, "Expected closing ']'");
         auto dynamic_array = std::make_unique<TypeNode>(TypeNodeType::ARRAY, std::move(base));
-        return BuildType(std::move(dynamic_array));
+        return BuildType(std::move(dynamic_array), scope);
+    }
+    if (Match(TokenType::DOT)) {
+        Consume(TokenType::IDENTIFIER, "Expected identifier");
+        auto name = previous_.value;
+        auto type = currentScope->LookupSubtype(name);
+        currentScope = type;
+        return BuildType(UniqueCast<TypeNode>(type->type->Clone()), scope);
     }
     return base;
 }
@@ -597,6 +610,8 @@ std::unique_ptr<StructNode> Parser::StructDeclaration() {
         Consume(TokenType::SEMICOLON, "Expected ';' after struct field");
     }
     Consume(TokenType::RIGHT_BRACE, "Expected '}'");
+    
+    currentScope->Declare(name, UniqueCast<TypeNode>(type->Clone()));
 
     auto node = std::make_unique<StructNode>(name, std::move(type), std::move(names));
     return node;
@@ -698,6 +713,9 @@ std::unique_ptr<ExpressionNode> Parser::ExpressionStatement() {
 ModuleNode* Parser::ModuleStatement() {
     Consume(TokenType::IDENTIFIER, "Expected identifier");
     std::string name = previous_.value;
+    
+    currentScope = root->Declare(name);
+    
     ModuleNode* current = nullptr;
     if (!modulesList_.contains(name)) {
         modulesList_[name] = std::make_unique<ModuleNode>(name);
@@ -723,7 +741,7 @@ ModuleNode* Parser::ModuleStatement() {
 std::unique_ptr<DefinitionNode> Parser::Declaration() {
     auto type_token = previous_;
     auto base_node = NodeFromType(type_token);
-    auto type_node = BuildType(std::move(base_node));
+    auto type_node = BuildType(std::move(base_node), currentScope);
 
     Consume(TokenType::IDENTIFIER, "Expected name after definition");
     auto name = previous_.value;
@@ -840,6 +858,9 @@ bool Parser::CheckType() const {
         return true;
     }
     if (Check(TokenType::LET)) {
+        return true;
+    }
+    if (currentScope->LookupSubtype(current_.value)) {
         return true;
     }
     return false;

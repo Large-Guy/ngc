@@ -64,10 +64,10 @@ void LLVMBackend::Generate(std::vector<std::unique_ptr<AstNode> > nodes) {
 
     for (const auto& node: nodes) {
         if (const auto module = is<ModuleNode>(node.get())) {
-            module_ = std::make_unique<Module>(module->path, *context_);
+            module_ = std::make_unique<Module>(module->name, *context_);
             module_->setTargetTriple(target_triple);
             module_->setDataLayout(target_machine->createDataLayout());
-            std::cout << "Module: " << module->path << std::endl;
+            std::cout << "Module: " << module->name << std::endl;
 
             for (const auto& statement: module->statements) {
                 if (const auto function = is<FunctionNode>(statement.get())) {

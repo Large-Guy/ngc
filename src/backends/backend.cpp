@@ -88,6 +88,13 @@ size_t Backend::EvaluateSize(const TypeNode* type_node) {
             }
             return total;
         }
+        case TypeNodeType::STRUCT: {
+            size_t total = 0;
+            for (auto& subtype: type_node->subtype) {
+                total += EvaluateSize(subtype.get());
+            }
+            return total;
+        }
         case TypeNodeType::I8:
             return 1;
         case TypeNodeType::I16:
