@@ -172,6 +172,17 @@ Type* LLVMBackend::GenerateType(const TypeNode* type, const std::string& name) {
             throw std::runtime_error("Map types are not supported");
         case TypeNodeType::SIMD:
             return FixedVectorType::get(GenerateType(type->subtype[0].get()), EvaluateInt(type->capacity.get()));
+        case TypeNodeType::MATRIX: {
+            //Expect capacity to be a tuple
+            auto tuple = dynamic_cast<TupleNode*>(type->capacity.get());
+            if (!tuple)
+                throw std::runtime_error("Expected tuple in matrix capacity");
+            auto elem_count = 1;
+            for (const auto& size : tuple->elements) {
+                elem_count *= EvaluateInt(size.get());
+            }
+            return FixedVectorType::get(GenerateType(type->subtype[0].get()), elem_count);
+        }
         case TypeNodeType::TUPLE: {
             auto subtypes = std::vector<Type*>();
             for (const auto& subtype: type->subtype) {
@@ -933,31 +944,71 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
         auto location = GenerateLValue(index->data.get());
         while (location.second->subtype[0]->Pointer())
             location = Drill(std::move(location), location.second->subtype[0].get());
-        auto index_value = GenerateRValue(index->index.get(), nullptr);
 
         if (!location.second->subtype[0]->Indexable())
             throw std::runtime_error("Index operation not supported on non-indexable type");
 
         auto dereference_type = location.second->subtype[0]->subtype[0].get();
+        
+        if (location.second->subtype[0]->type == TypeNodeType::MATRIX) {
+            std::vector<std::pair<Value*, std::unique_ptr<TypeNode> > > values;
+            auto tuple = dynamic_cast<TupleNode*>(index->index.get());
+            if (!tuple) {
+                throw std::runtime_error("Invalid index type");
+            }
+            //matrix sizes
+            std::vector<int64_t> dimensions_offsets;
+            int64_t offset = 1;
+            auto capacity_tuple = dynamic_cast<TupleNode*>(location.second->subtype[0]->capacity.get());
+            if (!capacity_tuple) {
+                throw std::runtime_error("Invalid capacity type");
+            }
+            
+            if (capacity_tuple->elements.size() != tuple->elements.size())
+                throw std::runtime_error("Invalid capacity size");
+            
+            for (const auto& dimension : capacity_tuple->elements) {
+                dimensions_offsets.push_back(offset);
+                offset *= EvaluateInt(dimension.get());
+            }
+            
+            //calculate offset
+            Value* sum = nullptr;
+            auto expected = std::make_unique<TypeNode>(TypeNodeType::U64);
+            for (auto i = 0; i < dimensions_offsets.size(); i++) {
+                auto dimension = GenerateRValue(tuple->elements[i].get(), expected.get());
+                auto mul = builder_->CreateMul(dimension.first, builder_->getInt64(dimensions_offsets[i]));
+                if (sum == nullptr) {
+                    sum = mul;
+                    continue;
+                }
+                sum = builder_->CreateAdd(sum, mul);
+            }
+            
+            auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW,
+                                                              UniqueCast<TypeNode>(dereference_type->Clone()));
+            auto element_ptr = builder_->CreateGEP(GenerateType(dereference_type), location.first, {sum});
+            return {element_ptr, std::move(result_ptr_type)};
+        }
 
+        // 1 dimension
+        auto index_value = GenerateRValue(index->index.get(), nullptr);
+        
         //TODO: note for later, GEP may confuse the optimizer.
         if (location.second->subtype[0]->type == TypeNodeType::SIMD) {
             //simd's get loaded differently
             auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW,
                                                               UniqueCast<TypeNode>(dereference_type->Clone()));
 
-            auto element_size = EvaluateSize(location.second->subtype[0]->subtype[0].get());
-            auto size_val = ConstantInt::get(*context_, APInt(64, element_size));
             auto element_ptr = builder_->CreateGEP(GenerateType(dereference_type), location.first, {index_value.first});
             return {element_ptr, std::move(result_ptr_type)};
         }
-
+        
+        
         //tuples get loaded differently
         auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW,
                                                           UniqueCast<TypeNode>(dereference_type->Clone()));
 
-        auto element_size = EvaluateSize(location.second->subtype[0]->subtype[0].get());
-        auto size_val = ConstantInt::get(*context_, APInt(64, element_size));
         auto element_ptr = builder_->CreateGEP(GenerateType(location.second->subtype[0].get()), location.first,
                                                {builder_->getInt32(0), index_value.first});
         return {element_ptr, std::move(result_ptr_type)};

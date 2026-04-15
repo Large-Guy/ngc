@@ -10,7 +10,7 @@ TupleNode::TupleNode(std::vector<std::unique_ptr<ExpressionNode> > elements) : e
 }
 
 std::unique_ptr<AstNode> TupleNode::Clone() const {
-    std::vector<std::unique_ptr<ExpressionNode> > items(elements.size());
+    std::vector<std::unique_ptr<ExpressionNode> > items;
     for (const auto& item: elements) {
         items.push_back(UniqueCast<ExpressionNode>(item->Clone()));
     }

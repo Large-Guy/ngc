@@ -1,17 +1,8 @@
 module program;
 
-struct Car
-{
-    i32 year;
-    f32 speed;
-    f32<2> position;
-}
-
 i32 main()
 {
-    Car car;
-    car.year = 2026;
-    car.speed = 60;
-    car.position = (3, 4) * 2;
-    return car.year;
+    i32<4,4> matrix;
+    matrix[0,1] = 4;
+    return matrix[0,1];
 }

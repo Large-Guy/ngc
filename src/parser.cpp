@@ -372,7 +372,21 @@ public:
     }
 
     static std::unique_ptr<ExpressionNode> Index(Parser& parser, std::unique_ptr<ExpressionNode> left, bool canAssign) {
-        auto index = parser.Expression();
+        std::vector<std::unique_ptr<ExpressionNode> > args;
+        
+        do {
+            args.push_back(parser.Expression());
+        } while (parser.Match(TokenType::COMMA));
+        
+        std::unique_ptr<ExpressionNode> index;
+        
+        if (args.size() > 1) {
+            index = std::make_unique<TupleNode>(std::move(args));
+        }
+        else {
+            index = std::move(args[0]);
+        }
+        
         parser.Consume(TokenType::RIGHT_BRACKET, "Expected closing ']'");
 
         return std::make_unique<IndexNode>(std::move(left), std::move(index));
@@ -563,10 +577,21 @@ std::unique_ptr<TypeNode> Parser::NodeFromType(const Token& token) {
 
 std::unique_ptr<TypeNode> Parser::BuildType(std::unique_ptr<TypeNode> base, TypeScope* scope) {
     if (Match(TokenType::LESS)) {
-        auto size = Expression(Precedence::SHIFT);
+        std::vector<std::unique_ptr<ExpressionNode>> sizes;
+        do {
+            sizes.push_back(Expression(Precedence::SHIFT));
+        } while (Match(TokenType::COMMA));
+        
         Consume(TokenType::GREATER, "Expected closing '>'");
-        auto simd = std::make_unique<TypeNode>(TypeNodeType::SIMD, std::move(base), std::move(size));
-        return BuildType(std::move(simd), scope);
+        if (sizes.size() == 1) {
+            auto simd = std::make_unique<TypeNode>(TypeNodeType::SIMD, std::move(base), std::move(sizes[0]));
+            return BuildType(std::move(simd), scope);
+        }
+        
+        //tuple dimensions
+        auto tuple_size = std::make_unique<TupleNode>(std::move(sizes));
+        auto matrix = std::make_unique<TypeNode>(TypeNodeType::MATRIX, std::move(base), std::move(tuple_size));
+        return matrix;
     }
     if (Match(TokenType::STAR)) {
         auto owner = std::make_unique<TypeNode>(TypeNodeType::OWNER, std::move(base));

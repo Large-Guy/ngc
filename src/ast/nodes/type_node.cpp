@@ -19,7 +19,6 @@ TypeNode::TypeNode(TypeNodeType type, std::vector<std::unique_ptr<TypeNode> > su
 std::unique_ptr<AstNode> TypeNode::Clone() const {
     std::vector<std::unique_ptr<TypeNode> > types;
 
-    types.reserve(subtype.size());
     for (auto& s: subtype) {
         types.push_back(UniqueCast<TypeNode>(s->Clone()));
     }
@@ -100,5 +99,5 @@ bool TypeNode::Equal(const TypeNode* other, bool borrowConversion) const {
 
 bool TypeNode::Indexable() const {
     return type == TypeNodeType::ARRAY || type == TypeNodeType::MAP || type == TypeNodeType::TUPLE || type ==
-           TypeNodeType::SIMD;
+           TypeNodeType::SIMD || type == TypeNodeType::MATRIX;
 }
