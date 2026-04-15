@@ -3,7 +3,6 @@ module program;
 struct Car
 {
     i32 year;
-    
     f32 speed;
     f32<2> position;
 }
@@ -13,6 +12,6 @@ i32 main()
     Car car;
     car.year = 2026;
     car.speed = 60;
-    car.position += (car.speed, car.speed);
+    car.position = (3, 4) * 2;
     return car.year;
 }

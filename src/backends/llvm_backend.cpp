@@ -232,7 +232,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Cast(std::pair<Value*
     }
     auto llvm_type = GenerateType(type);
     auto unique_type = UniqueCast<TypeNode>(type->Clone());
-
+    
     if (value.second->type == TypeNodeType::SIMD && type->type == TypeNodeType::SIMD) {
         auto val_cap = EvaluateInt(value.second->capacity.get());
         auto res_cap = EvaluateInt(type->capacity.get());
@@ -293,6 +293,22 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Cast(std::pair<Value*
                 return {val, UniqueCast<TypeNode>(type->Clone())};
             }
         }
+    }
+    
+    if (type->type == TypeNodeType::SIMD) {
+        // a must be scalar
+        
+        //alloc a simd vector
+        auto elems = EvaluateInt(type->capacity.get());
+        auto alloc = builder_->CreateAlloca(GenerateType(type));
+        auto casted_val = Cast(std::move(value), type->subtype[0].get());
+        for (size_t i = 0; i < elems; i++) {
+            auto elem_ptr = builder_->CreateGEP(GenerateType(type->subtype[0].get()), alloc, {builder_->getInt32(i)});
+            builder_->CreateStore(casted_val.first, elem_ptr);
+        }
+        
+        auto load = builder_->CreateLoad(GenerateType(type), alloc);
+        return {load, std::move(unique_type)};
     }
 
     if (value.second->Integer() && type->Integer()) {
@@ -363,6 +379,8 @@ std::unique_ptr<TypeNode> LLVMBackend::Promote(TypeNode* a,
     if (b->Float() && a->Integer()) {
         return UniqueCast<TypeNode>(b->Clone()); // promote to float
     }
+    
+    // vector resizing
     if (a->type == TypeNodeType::SIMD && b->type == TypeNodeType::SIMD) {
         auto a_size = EvaluateInt(a->capacity.get());
         auto b_size = EvaluateInt(b->capacity.get());
@@ -371,6 +389,13 @@ std::unique_ptr<TypeNode> LLVMBackend::Promote(TypeNode* a,
         return std::make_unique<TypeNode>(TypeNodeType::SIMD,
                                           Promote(a->subtype[0].get(), b->subtype[0].get()),
                                           std::make_unique<IntegerNode>(final_size));
+    }
+    
+    // scalar
+    if (a->type == TypeNodeType::SIMD) {
+        auto a_size = EvaluateInt(a->capacity.get());
+        // b is scalar
+        return std::make_unique<TypeNode>(TypeNodeType::SIMD, Promote(a->subtype[0].get(), b), std::make_unique<IntegerNode>(a_size));
     }
     std::cerr << "Unhandled promotion rule, could be possible source of bug" << std::endl;
     return UniqueCast<TypeNode>(a->Clone());
@@ -646,10 +671,9 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto left_comp_type = left.second.get();
         auto right_comp_type = left.second.get();
         if (left.second->type == TypeNodeType::SIMD) {
-            if (right.second->type != TypeNodeType::SIMD) {
-                throw std::runtime_error("Scalar to vector promotion not implemented");
-            }
             left_comp_type = left.second->subtype[0].get();
+        }
+        if (right.second->type == TypeNodeType::SIMD) {
             right_comp_type = right.second->subtype[0].get();
         }
         if (left_comp_type->Float() || right_comp_type->Float()) {
