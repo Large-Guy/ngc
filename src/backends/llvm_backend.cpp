@@ -566,6 +566,37 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
                               std::make_unique<TypeNode>(TypeNodeType::F64)), expected);
     }
     if (const auto tuple = is<TupleNode>(get)) {
+        if (expected != nullptr && expected->type == TypeNodeType::TENSOR) {
+            //assume we're gonna be defining a tensor array
+            std::vector<Value*> values;
+            size_t size = 0;
+
+            auto tensor_type = expected->subtype[0].get();
+
+            for (const auto& element: tuple->elements) {
+                auto value = GenerateRValue(element.get(), tensor_type);
+                size += EvaluateSize(value.second.get());
+                values.push_back(value.first);
+            }
+
+            auto tensor_node = std::make_unique<TypeNode>(TypeNodeType::TENSOR,
+                                                        UniqueCast<TypeNode>(tensor_type->Clone()),
+                                                        UniqueCast<TupleNode>(expected->capacity->Clone()));
+            
+            auto type = GenerateType(tensor_node.get());
+            auto arr = builder_->CreateAlloca(type);
+
+            for (size_t i = 0; i < values.size(); i++) {
+                auto val = values[i];
+                auto elem_ptr = builder_->CreateGEP(GenerateType(tensor_type), arr, {builder_->getInt32(i)});
+                builder_->CreateStore(val, elem_ptr);
+            }
+
+            //load
+            auto load = builder_->CreateLoad(type, arr);
+
+            return std::pair{load, std::move(tensor_node)};
+        }
         if (expected != nullptr && expected->type == TypeNodeType::SIMD) {
             //assume we're gonna be defining a SIMD array
             std::vector<Value*> values;
@@ -681,11 +712,102 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         auto right = GenerateRValue(binary->right.get(), nullptr);
         auto left_comp_type = left.second.get();
         auto right_comp_type = left.second.get();
-        if (left.second->type == TypeNodeType::SIMD) {
+
+        if (left.second->type == TypeNodeType::SIMD || left.second->type == TypeNodeType::TENSOR) {
             left_comp_type = left.second->subtype[0].get();
         }
-        if (right.second->type == TypeNodeType::SIMD) {
+        if (right.second->type == TypeNodeType::SIMD || right.second->type == TypeNodeType::TENSOR) {
             right_comp_type = right.second->subtype[0].get();
+        }
+
+        if (left.second->type == TypeNodeType::TENSOR) {
+            if (binary->type != BinaryNodeType::MULTIPLY)
+                throw std::runtime_error("Only multiplication is currently allowed for tensor types");
+
+            if (right.second->type != TypeNodeType::TENSOR) {
+                throw std::runtime_error("Tensor's are currently only allowed to perform arithmetic with other tensors");
+            }
+            //ensure valid sizes
+            auto left_capacity_tuple = dynamic_cast<TupleNode*>(left.second->capacity.get());
+            auto right_capacity_tuple = dynamic_cast<TupleNode*>(right.second->capacity.get());
+
+            // ensure rank-2 tensor
+            if (left_capacity_tuple->elements.size() > 2 || right_capacity_tuple->elements.size() > 2) {
+                throw std::runtime_error("Arithmetic is only allowed on rank-2 tensors");
+            }
+
+            int64_t left_dimensions[2] = {EvaluateInt(left_capacity_tuple->elements[0].get()), EvaluateInt(left_capacity_tuple->elements[1].get())};
+            int64_t right_dimensions[2] = {EvaluateInt(right_capacity_tuple->elements[0].get()), EvaluateInt(right_capacity_tuple->elements[1].get())};
+
+
+            //ensure valid sizes for tensor multiplication
+            // left.w == right.h
+            if (left_dimensions[1] != right_dimensions[0]) {
+                throw std::runtime_error("Tensor multiplication is only allowed when the width of the left tensor is equal to the height of the right tensor");
+            }
+
+            // following wikipedia's definition of a matrix multiplication
+            int m = left_dimensions[0];
+            int n = left_dimensions[1];
+            int p = right_dimensions[1];
+
+            // result is m x p
+            int result_dimensions[2] = {m, p};
+
+            std::vector<Value*> result_values;
+
+            auto promotion = Promote(left_comp_type, right_comp_type);
+
+            for (int i = 0; i < m; i++) {
+                for (int j = 0; j < p; j++) {
+                    Value* sum = nullptr;
+                    for (int k = 0; k < n; k++) {
+                        int left_index = i * n + k;
+                        int right_index = k * p + j;
+                        auto left_value = builder_->CreateExtractElement(left.first, builder_->getInt64(left_index));
+                        auto right_value = builder_->CreateExtractElement(right.first, builder_->getInt64(right_index));
+
+                        auto left_prom_value = Cast({left_value, UniqueCast<TypeNode>(left_comp_type->Clone())}, promotion.get());
+                        auto right_prom_value = Cast({right_value, UniqueCast<TypeNode>(right_comp_type->Clone())}, promotion.get());
+
+                        if (left_prom_value.second->Float()) {
+                            auto mul = builder_->CreateFMul(left_prom_value.first, right_prom_value.first);
+
+                            if (sum == nullptr) {
+                                sum = mul;
+                            } else {
+                                sum = builder_->CreateFAdd(sum, mul);
+                            }
+                        }
+                        else {
+                            auto mul = builder_->CreateMul(left_prom_value.first, right_prom_value.first);
+
+                            if (sum == nullptr) {
+                                sum = mul;
+                            } else {
+                                sum = builder_->CreateAdd(sum, mul);
+                            }
+                        }
+                    }
+                    result_values.push_back(sum);
+                }
+            }
+
+            // construct the new tensor
+            std::vector<std::unique_ptr<ExpressionNode>> tuple_dimensions;
+            tuple_dimensions.push_back(std::make_unique<IntegerNode>(m));
+            tuple_dimensions.push_back(std::make_unique<IntegerNode>(p));
+            auto size_tuple = std::make_unique<TupleNode>(std::move(tuple_dimensions));
+            auto type = std::make_unique<TypeNode>(TypeNodeType::TENSOR, UniqueCast<TypeNode>(left_comp_type->Clone()), std::move(size_tuple));
+
+            Value* vec = PoisonValue::get(FixedVectorType::get(GenerateType(promotion.get()), result_values.size()));
+
+            //store all the values
+            for (auto i = 0; i < result_values.size(); i++) {
+                vec = builder_->CreateInsertElement(vec, result_values[i], i);
+            }
+
+            return {vec, std::move(type)};
         }
         if (left_comp_type->Float() || right_comp_type->Float()) {
             auto promotion = Promote(left.second.get(), right.second.get());

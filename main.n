@@ -2,6 +2,10 @@ module program;
 
 i32 main()
 {
-    i32<4,4> tensor; // tensor math
-    i32<4><4> array_of_arrays; // element wise multiplication
+    i32<2,2> tensor_a = (1,2,3,4);
+    i32<2,2> tensor_b = (1,2,3,4);
+
+    i32<2,2> dot = tensor_a * tensor_b;
+
+    return dot[1,1];
 }

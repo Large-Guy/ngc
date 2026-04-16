@@ -1,6 +1,8 @@
 #include "type_node.h"
 
 #include <utility>
+
+#include "tuple_node.h"
 #include "../../memory_utils.h"
 #include "backends/backend.h"
 
@@ -86,13 +88,30 @@ bool TypeNode::Equal(const TypeNode* other, bool borrowConversion) const {
     }
     if (capacity != nullptr) {
         if (other->capacity != nullptr) {
-            if (Backend::EvaluateInt(capacity.get()) !=
-                Backend::EvaluateInt(other->capacity.get())) {
-                return false;
+            if (auto tuple = dynamic_cast<TupleNode*>(capacity.get())) {
+                //compare elements
+                auto other_tuple = dynamic_cast<TupleNode*>(other->capacity.get());
+                if (other_tuple == nullptr)
+                    return false;
+                if (tuple->elements.size() != other_tuple->elements.size())
+                    return false;
+                for (auto i = 0; i < tuple->elements.size(); i++) {
+                    if (Backend::EvaluateInt(tuple->elements[i].get()) !=
+                        Backend::EvaluateInt(other_tuple->elements[i].get())) {
+                        return false;
+                    }
+                }
             }
-            return true;
+            else {
+                if (Backend::EvaluateInt(capacity.get()) !=
+                    Backend::EvaluateInt(other->capacity.get())) {
+                    return false;
+                    }
+            }
         }
-        return false;
+        else {
+            return false;
+        }
     }
     return true; // TODO: handle capacity
 }
