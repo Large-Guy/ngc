@@ -2,10 +2,9 @@ module program;
 
 i32 main()
 {
-    i32<2,2> tensor_a = (1,2,3,4);
-    i32<2,2> tensor_b = (1,2,3,4);
+    // vector as tensor
+    i32<,3> a = (1,2,3); // short hand for 1x3
+    i32<3,> b = (1,2,3); // short hand for 3x1
 
-    i32<2,2> dot = tensor_a * tensor_b;
-
-    return dot[1,1];
+    let result = a * b; // dot product
 }

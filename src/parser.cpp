@@ -579,6 +579,15 @@ std::unique_ptr<TypeNode> Parser::BuildType(std::unique_ptr<TypeNode> base, Type
     if (Match(TokenType::LESS)) {
         std::vector<std::unique_ptr<ExpressionNode>> sizes;
         do {
+            if (Check(TokenType::GREATER)) {
+                sizes.push_back(std::make_unique<IntegerNode>(1));
+                break;
+            }
+            if (Check(TokenType::COMMA)) {
+                sizes.push_back(std::make_unique<IntegerNode>(1));
+                continue;
+            }
+
             sizes.push_back(Expression(Precedence::SHIFT));
         } while (Match(TokenType::COMMA));
         
@@ -770,8 +779,9 @@ std::unique_ptr<DefinitionNode> Parser::Declaration() {
 
     Consume(TokenType::IDENTIFIER, "Expected name after definition");
     auto name = previous_.value;
-    
-    type_node->name = name;
+
+    if (type_node != nullptr)
+        type_node->name = name;
 
     if (Match(TokenType::LEFT_PAREN)) {
         std::vector<std::unique_ptr<DefinitionNode> > args;
