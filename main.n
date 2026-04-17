@@ -11,7 +11,7 @@ f32<3> translate(f32<3> v, f32<3> t) {
     return translation * (a as f32<4,1>);
 }
 
-f32 scale(f32<3> v, f32<3> s) {
+f32<3> scale(f32<3> v, f32<3> s) {
     f32<4,4> scaling = (s.x, 0, 0, 0,
                       0, s.y, 0, 0,
                       0, 0, s.z, 0,
@@ -24,6 +24,6 @@ f32 scale(f32<3> v, f32<3> s) {
 
 i32 main()
 {
-    let result = translate((0,0,0), (1,2,3));
+    let result = scale(translate((0,0,0), (1,2,3)), (2,2,2));
     return result.z as i32;
 }
