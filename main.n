@@ -7,4 +7,6 @@ i32 main()
     i32<3,> b = (1,2,3); // short hand for 3x1
 
     let result = a * b; // dot product
+    
+    return result;
 }

@@ -798,7 +798,7 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             tuple_dimensions.push_back(std::make_unique<IntegerNode>(m));
             tuple_dimensions.push_back(std::make_unique<IntegerNode>(p));
             auto size_tuple = std::make_unique<TupleNode>(std::move(tuple_dimensions));
-            auto type = std::make_unique<TypeNode>(TypeNodeType::TENSOR, UniqueCast<TypeNode>(left_comp_type->Clone()), std::move(size_tuple));
+            auto type = std::make_unique<TypeNode>(TypeNodeType::TENSOR, UniqueCast<TypeNode>(promotion->Clone()), std::move(size_tuple));
 
             Value* vec = PoisonValue::get(FixedVectorType::get(GenerateType(promotion.get()), result_values.size()));
 
