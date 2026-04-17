@@ -1,17 +1,29 @@
 module program;
 
-i32 main()
-{
-    f32<3> a = (0,0,0);
-    
-    f32<4> transform = (3, 2, 1);
-    
-    f32<4,4> translation = (1, 0, 0, transform.x,
-                            0, 1, 0, transform.y,
-                            0, 0, 1, transform.z,
+f32<3> translate(f32<3> v, f32<3> t) {
+    f32<4,4> translation = (1, 0, 0, t.x,
+                            0, 1, 0, t.y,
+                            0, 0, 1, t.z,
                             0, 0, 0, 1);
     
-    f32<,4> result =  transform as f32<,4> * translation;
+    f32<4> a = v;
+    a.w = 1;
+    return translation * (a as f32<4,1>);
+}
+
+f32 scale(f32<3> v, f32<3> s) {
+    f32<4,4> scaling = (s.x, 0, 0, 0,
+                      0, s.y, 0, 0,
+                      0, 0, s.z, 0,
+                      0, 0, 0, 1);
     
-    return result[2] as i32;
+    f32<4> a = v;
+    a.w = 1;
+    return scaling * (a as f32<4,1>);
+}
+
+i32 main()
+{
+    let result = translate((0,0,0), (1,2,3));
+    return result.z as i32;
 }

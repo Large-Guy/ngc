@@ -303,6 +303,42 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Cast(std::pair<Value*
         return res;
     }
     
+    if (value.second->type == TypeNodeType::TENSOR && type->type == TypeNodeType::SIMD) {
+        // check if value's size is equal to the tensors
+        auto vector_size = EvaluateInt(type->capacity.get());
+        
+        auto dimensions_tuple = dynamic_cast<TupleNode*>(value.second->capacity.get());
+        
+        auto tensor_size = 1;
+        for (const auto& dimension : dimensions_tuple->elements) {
+            tensor_size *= EvaluateInt(dimension.get()); 
+        }
+        
+        if (vector_size > tensor_size) {
+            throw std::runtime_error("tensor and vector must be of equal sizes or lesser");
+        }
+        
+        std::vector<int> shuffle;
+        for (auto i = 0; i < vector_size; i++) {
+            shuffle.push_back(i);
+        }
+        
+        //shrink
+        auto val = builder_->CreateShuffleVector(value.first,
+                                                 Constant::getNullValue(GenerateType(value.second.get())),
+                                                 shuffle);
+        
+        // cast subtypes
+        auto cast = std::pair(val, UniqueCast<TypeNode>(value.second->subtype[0]->Clone()));
+        auto target_subtype = type->subtype[0].get();
+        auto subtype_cast_res = Cast(std::move(cast), target_subtype, llvm_type);
+        
+        // plain reinterpret
+        auto res = std::pair(subtype_cast_res.first, UniqueCast<TypeNode>(type->Clone()));
+        
+        return res;
+    }
+    
     if (type->type == TypeNodeType::SIMD) {
         // a must be scalar
         
