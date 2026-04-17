@@ -25,7 +25,7 @@ public:
                                                         const TypeNode* type);
 
     std::pair<Value*, std::unique_ptr<TypeNode> > Cast(std::pair<Value*, std::unique_ptr<TypeNode> > value,
-                                                       const TypeNode* type);
+                                                       const TypeNode* type, Type* override_type = nullptr);
 
     std::unique_ptr<TypeNode> Promote(TypeNode* a,
                                       TypeNode* b);

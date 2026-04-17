@@ -2,11 +2,16 @@ module program;
 
 i32 main()
 {
-    // vector as tensor
-    i32<,3> a = (1,2,3); // short hand for 1x3
-    i32<3,> b = (1,2,3); // short hand for 3x1
-
-    let result = a * b; // dot product
+    f32<3> a = (0,0,0);
     
-    return result;
+    f32<4> transform = (3, 2, 1);
+    
+    f32<4,4> translation = (1, 0, 0, transform.x,
+                            0, 1, 0, transform.y,
+                            0, 0, 1, transform.z,
+                            0, 0, 0, 1);
+    
+    f32<,4> result =  transform as f32<,4> * translation;
+    
+    return result[2] as i32;
 }

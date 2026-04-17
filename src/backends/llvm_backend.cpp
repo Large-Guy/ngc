@@ -236,12 +236,14 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Drill(std::pair<Value
 }
 
 std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Cast(std::pair<Value*, std::unique_ptr<TypeNode> > value,
-                                                                const TypeNode* type) {
+                                                                const TypeNode* type, Type* override_type) {
     if (type == nullptr || value.second->Equal(type, true)) {
         // null type implies no cast
         return {value.first, UniqueCast<TypeNode>(type->Clone())};
     }
-    auto llvm_type = GenerateType(type);
+    Type* llvm_type = override_type;
+    if (!llvm_type)
+        llvm_type = GenerateType(type);
     auto unique_type = UniqueCast<TypeNode>(type->Clone());
     
     if (value.second->type == TypeNodeType::SIMD && type->type == TypeNodeType::SIMD) {
@@ -263,47 +265,42 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::Cast(std::pair<Value*
                                                  Constant::getNullValue(GenerateType(value.second.get())),
                                                  shuffle);
 
-
-        if (val_elem_type->Integer() && res_elem_type->Integer()) {
-            bool narrowing = EvaluateSize(val_elem_type) > EvaluateSize(res_elem_type);
-            if (narrowing) {
-                return {builder_->CreateTrunc(val, llvm_type), std::move(unique_type)};
-            }
-            if (val_elem_type->Signed()) {
-                return {builder_->CreateSExt(val, llvm_type), std::move(unique_type)};
-            }
-            return {builder_->CreateZExt(val, llvm_type), std::move(unique_type)};
+        // cast subtype by lying about true type
+        
+        auto cast = std::pair(val, UniqueCast<TypeNode>(value.second->subtype[0]->Clone()));
+        auto target_subtype = type->subtype[0].get();
+        auto subtype_cast_res = Cast(std::move(cast), target_subtype, llvm_type);
+        
+        // lie about the actual type
+        auto res = std::pair(subtype_cast_res.first, UniqueCast<TypeNode>(type->Clone()));
+        
+        return res;
+    }
+    
+    if (value.second->type == TypeNodeType::SIMD && type->type == TypeNodeType::TENSOR) {
+        // check if value's size is equal to the tensors
+        auto vector_size = EvaluateInt(value.second->capacity.get());
+        
+        auto dimensions_tuple = dynamic_cast<TupleNode*>(type->capacity.get());
+        
+        auto tensor_size = 1;
+        for (const auto& dimension : dimensions_tuple->elements) {
+            tensor_size *= EvaluateInt(dimension.get()); 
         }
-
-        if (val_elem_type->Float() && res_elem_type->Float()) {
-            return {builder_->CreateFPCast(val, llvm_type), std::move(unique_type)};
+        
+        if (vector_size != tensor_size) {
+            throw std::runtime_error("tensor and vector must be of equal sizes");
         }
-
-        if (val_elem_type->Integer() && res_elem_type->Float()) {
-            if (val_elem_type->Signed()) {
-                return {builder_->CreateSIToFP(val, llvm_type), std::move(unique_type)};
-            }
-            return {builder_->CreateUIToFP(val, llvm_type), std::move(unique_type)};
-        }
-        if (val_elem_type->Float() && res_elem_type->Integer()) {
-            if (val_elem_type->Signed()) {
-                return {builder_->CreateFPToSI(val, llvm_type), std::move(unique_type)};
-            }
-            return {builder_->CreateFPToUI(val, llvm_type), std::move(unique_type)};
-        }
-
-        if (val_elem_type->Pointer() && res_elem_type->Boolean()) {
-            return {builder_->CreateIsNotNull(val), std::move(unique_type)};
-        }
-
-        if (val_elem_type->Pointer() && res_elem_type->Pointer()) {
-            if (val_elem_type->type == TypeNodeType::BORROW && res_elem_type->type == TypeNodeType::OWNER) {
-                throw std::runtime_error("Cannot cast borrow to owner");
-            }
-            if (val_elem_type->subtype[0]->Equal(res_elem_type->subtype[0].get(), true)) {
-                return {val, UniqueCast<TypeNode>(type->Clone())};
-            }
-        }
+        
+        // cast subtypes
+        auto cast = std::pair(value.first, UniqueCast<TypeNode>(value.second->subtype[0]->Clone()));
+        auto target_subtype = type->subtype[0].get();
+        auto subtype_cast_res = Cast(std::move(cast), target_subtype, llvm_type);
+        
+        // plain reinterpret
+        auto res = std::pair(subtype_cast_res.first, UniqueCast<TypeNode>(type->Clone()));
+        
+        return res;
     }
     
     if (type->type == TypeNodeType::SIMD) {
@@ -1074,42 +1071,48 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateLValue(AstNod
         
         if (location.second->subtype[0]->type == TypeNodeType::TENSOR) {
             std::vector<std::pair<Value*, std::unique_ptr<TypeNode> > > values;
-            auto tuple = dynamic_cast<TupleNode*>(index->index.get());
-            if (!tuple) {
-                throw std::runtime_error("Invalid index type");
-            }
-            //matrix sizes
-            std::vector<int64_t> dimensions_offsets;
-            int64_t offset = 1;
-            auto capacity_tuple = dynamic_cast<TupleNode*>(location.second->subtype[0]->capacity.get());
-            if (!capacity_tuple) {
-                throw std::runtime_error("Invalid capacity type");
-            }
+            Value* ind = nullptr;
             
-            if (capacity_tuple->elements.size() != tuple->elements.size())
-                throw std::runtime_error("Invalid capacity size");
-            
-            for (const auto& dimension : capacity_tuple->elements) {
-                dimensions_offsets.push_back(offset);
-                offset *= EvaluateInt(dimension.get());
-            }
-            
-            //calculate offset
-            Value* sum = nullptr;
             auto expected = std::make_unique<TypeNode>(TypeNodeType::U64);
-            for (auto i = 0; i < dimensions_offsets.size(); i++) {
-                auto dimension = GenerateRValue(tuple->elements[i].get(), expected.get());
-                auto mul = builder_->CreateMul(dimension.first, builder_->getInt64(dimensions_offsets[i]));
-                if (sum == nullptr) {
-                    sum = mul;
-                    continue;
+            
+            auto tuple = dynamic_cast<TupleNode*>(index->index.get());
+            if (tuple) {
+                //matrix sizes
+                std::vector<int64_t> dimensions_offsets;
+                int64_t offset = 1;
+                auto capacity_tuple = dynamic_cast<TupleNode*>(location.second->subtype[0]->capacity.get());
+                if (!capacity_tuple) {
+                    throw std::runtime_error("Invalid capacity type");
                 }
-                sum = builder_->CreateAdd(sum, mul);
+            
+                if (capacity_tuple->elements.size() != tuple->elements.size())
+                    throw std::runtime_error("Invalid capacity size");
+            
+                for (const auto& dimension : capacity_tuple->elements) {
+                    dimensions_offsets.push_back(offset);
+                    offset *= EvaluateInt(dimension.get());
+                }
+            
+                //calculate offset
+                Value* sum = nullptr;
+                for (auto i = 0; i < dimensions_offsets.size(); i++) {
+                    auto dimension = GenerateRValue(tuple->elements[i].get(), expected.get());
+                    auto mul = builder_->CreateMul(dimension.first, builder_->getInt64(dimensions_offsets[i]));
+                    if (sum == nullptr) {
+                        sum = mul;
+                        continue;
+                    }
+                    sum = builder_->CreateAdd(sum, mul);
+                }
+                ind = sum;
+            }
+            else {
+                ind = GenerateRValue(index->index.get(), expected.get()).first;
             }
             
             auto result_ptr_type = std::make_unique<TypeNode>(TypeNodeType::BORROW,
                                                               UniqueCast<TypeNode>(dereference_type->Clone()));
-            auto element_ptr = builder_->CreateGEP(GenerateType(dereference_type), location.first, {sum});
+            auto element_ptr = builder_->CreateGEP(GenerateType(dereference_type), location.first, {ind});
             return {element_ptr, std::move(result_ptr_type)};
         }
 
