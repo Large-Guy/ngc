@@ -64,6 +64,8 @@ public:
     bool Equal(const TypeNode* other, bool borrowConversion) const;
 
     [[nodiscard]] bool Indexable() const;
+    
+    [[nodiscard]] bool Vectorizable() const;
 
     std::string name;
     TypeNodeType type;

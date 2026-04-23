@@ -1,21 +1,10 @@
 module program;
 
-i32 consume(i32* i)
-{
-    return i;
-}
-
 i32 main(i32 x)
 {
-    i32* a = [2];
-    i32 result = 0;
-    if(x > 0)
-    {
-        result = consume(a) + 1;
-    }
-    else
-    {
-        return a;
-    }
-    return result;
+    i32<4><4> grid;
+
+    grid[0][0] = 1;
+
+    return grid[0][0];
 }

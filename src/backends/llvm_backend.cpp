@@ -170,8 +170,13 @@ Type* LLVMBackend::GenerateType(const TypeNode* type, const std::string& name) {
             throw std::runtime_error("Array types are not supported");
         case TypeNodeType::MAP:
             throw std::runtime_error("Map types are not supported");
-        case TypeNodeType::SIMD:
-            return FixedVectorType::get(GenerateType(type->subtype[0].get()), EvaluateInt(type->capacity.get()));
+        case TypeNodeType::SIMD: {
+            if (type->subtype[0]->Vectorizable()) {
+                return FixedVectorType::get(GenerateType(type->subtype[0].get()), EvaluateInt(type->capacity.get()));
+            }
+            // default to a plain static array
+            return ArrayType::get(GenerateType(type->subtype[0].get()), EvaluateInt(type->capacity.get()));
+        }
         case TypeNodeType::TENSOR: {
             //Expect capacity to be a tuple
             auto tuple = dynamic_cast<TupleNode*>(type->capacity.get());

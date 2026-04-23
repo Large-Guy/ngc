@@ -120,3 +120,19 @@ bool TypeNode::Indexable() const {
     return type == TypeNodeType::ARRAY || type == TypeNodeType::MAP || type == TypeNodeType::TUPLE || type ==
            TypeNodeType::SIMD || type == TypeNodeType::TENSOR;
 }
+
+bool TypeNode::Vectorizable() const {
+    switch (type) {
+        case TypeNodeType::VOID:
+        case TypeNodeType::STRUCT:
+        case TypeNodeType::OPTIONAL:
+        case TypeNodeType::ARRAY:
+        case TypeNodeType::MAP:
+        case TypeNodeType::TUPLE:
+        case TypeNodeType::SIMD:
+        case TypeNodeType::TENSOR:
+            return false;
+        default:
+            return true;
+    }
+}
