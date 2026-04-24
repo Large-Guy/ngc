@@ -21,6 +21,7 @@
 #include "ast/nodes/compound_statement.h"
 #include "ast/nodes/field_node.h"
 #include "ast/nodes/float_node.h"
+#include "ast/nodes/for_node.h"
 #include "ast/nodes/function_node.h"
 #include "ast/nodes/heap_node.h"
 #include "ast/nodes/identifier_node.h"
@@ -580,6 +581,35 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         builder_->SetInsertPoint(merge_block->basic_block);
         current_block = merge_block.get();
         return {};
+    }
+    if (auto for_statement = is<ForNode>(get)) {
+        scope_.PushScope();
+        GenerateRValue(for_statement->init.get(), nullptr);
+        auto cond_block = std::make_shared<Block>(*context_, func, "for.cond");
+        auto loop_block = std::make_shared<Block>(*context_, func, "for.loop");
+        auto merge_block = std::make_shared<Block>(*context_, func, "for.merge");
+        
+        builder_->CreateBr(cond_block->basic_block);
+        builder_->SetInsertPoint(cond_block->basic_block);
+        current_block = cond_block.get();
+        
+        auto condition = GenerateRValue(for_statement->condition.get(), &BOOLEAN);
+        builder_->CreateCondBr(condition.first, loop_block->basic_block, merge_block->basic_block);
+        cond_block->Connect(loop_block);
+        cond_block->Connect(merge_block);
+        
+        builder_->SetInsertPoint(loop_block->basic_block);
+        current_block = loop_block.get();
+        auto result = GenerateRValue(for_statement->body.get(), expected);
+        auto postfix = GenerateRValue(for_statement->postfix.get(), nullptr);
+        builder_->CreateBr(cond_block->basic_block);
+        loop_block->Connect(cond_block);
+        
+        builder_->SetInsertPoint(merge_block->basic_block);
+        current_block = merge_block.get();
+        scope_.PopScope(this, builder_.get(), current_block);
+        return {};
+        
     }
     if (const auto integer = is<IntegerNode>(get)) {
         Value* val = nullptr;

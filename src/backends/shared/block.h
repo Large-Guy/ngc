@@ -17,6 +17,8 @@ public:
     void Move(llvm::Value* value);
     
 private:
+    bool ValidHelper(llvm::Value* value, std::unordered_set<const Block*>& visited) const;
+    
     std::vector<std::weak_ptr<Block>> predecessors;
     std::vector<std::shared_ptr<Block>> successors;
     

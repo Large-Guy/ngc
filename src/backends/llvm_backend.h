@@ -5,6 +5,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 
+#include "ast/nodes/compound_statement.h"
 #include "ast/nodes/struct_node.h"
 #include "ast/nodes/variable_node.h"
 #include "shared/block.h"
@@ -56,7 +57,7 @@ private:
     Function* func = nullptr;
     std::shared_ptr<Block> exit = nullptr;
     Value* ret = nullptr;
-    Block* current_block;
+    Block* current_block = nullptr;
 };
 
 
