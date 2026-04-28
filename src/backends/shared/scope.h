@@ -18,16 +18,16 @@ public:
 
     void PopScope(struct LLVMBackend* backend, llvm::IRBuilder<>* builder, Block* block);
 
-    void Declare(const std::string& name, llvm::Value* value, std::unique_ptr<TypeNode> type);
+    void Declare(std::string name, llvm::Value* value, std::unique_ptr<TypeNode> type);
 
     llvm::Value* Lookup(const std::string& name);
 
     TypeNode* Type(const std::string& name);
 
 private:
-
     void Free(struct LLVMBackend* backend, llvm::IRBuilder<>* builder, std::pair<llvm::Value*, std::unique_ptr<TypeNode>>& value);
     
+    size_t anonymous = 0;
     std::vector<std::unordered_map<std::string, std::pair<llvm::Value*, std::unique_ptr<TypeNode>>>> stack;
 };
 

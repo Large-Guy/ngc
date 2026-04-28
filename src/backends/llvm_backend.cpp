@@ -488,22 +488,30 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             //inferred
             if (variable->value == nullptr)
                 throw std::runtime_error("Unable to infer variable type");
-            auto val = GenerateRValue(variable->value.get(), nullptr);
+            auto value = GenerateRValue(variable->value.get(), nullptr);
 
-            auto* type = GenerateType(val.second.get());
+            if (value.second->type == TypeNodeType::OWNER) {
+                current_block->Move(value.first);
+            }
+            
+            auto* type = GenerateType(value.second.get());
             auto* var = builder_->CreateAlloca(type, nullptr, variable->name);
-            builder_->CreateStore(val.first, var);
+            builder_->CreateStore(value.first, var);
             auto ptr_type = std::make_unique<TypeNode>(TypeNodeType::OWNER,
-                                                       UniqueCast<TypeNode>(val.second->Clone()));
+                                                       UniqueCast<TypeNode>(value.second->Clone()));
             scope_.Declare(variable->name, var, UniqueCast<TypeNode>(ptr_type->Clone()));
             return std::pair(var, UniqueCast<TypeNode>(ptr_type->Clone()));
         }
         auto* type = GenerateType(variable->type.get());
         auto* var = builder_->CreateAlloca(type, nullptr, variable->name);
-        builder_->CreateStore(variable->value
+        auto value = variable->value
                                   ? Cast(GenerateRValue(variable->value.get(), variable->type.get()),
-                                         variable->type.get()).first
-                                  : Constant::getNullValue(type), var);
+                                         variable->type.get())
+                                  : std::make_pair(Constant::getNullValue(type), UniqueCast<TypeNode>(variable->type->Clone()));
+        if (value.second->type == TypeNodeType::OWNER) {
+            current_block->Move(value.first);
+        }
+        builder_->CreateStore(value.first, var);
         auto ptr_type = std::make_unique<TypeNode>(TypeNodeType::OWNER, UniqueCast<TypeNode>(variable->type->Clone()));
         scope_.Declare(variable->name, var, UniqueCast<TypeNode>(ptr_type->Clone()));
         return std::pair(var, UniqueCast<TypeNode>(ptr_type->Clone()));
@@ -811,6 +819,9 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             type_target = type_target->subtype[0].get();
         target = Drill(std::move(target), type_target);
         auto value = GenerateRValue(assign->value.get(), target.second->subtype[0].get());
+        if (value.second->type == TypeNodeType::OWNER) {
+            current_block->Move(value.first);
+        }
         builder_->CreateStore(value.first, target.first);
         return value;
     }
@@ -1080,15 +1091,15 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
         }
     }
     if (const auto heap = is<HeapNode>(get)) {
-        if (expected == nullptr)
-            throw std::runtime_error("Heap nodes need expected types");
-        auto x = GenerateRValue(heap->expression.get(), expected->subtype[0].get());
+        auto x = GenerateRValue(heap->expression.get(), expected != nullptr ? expected->subtype[0].get() : nullptr);
         auto type = GenerateType(x.second.get());
+        auto ptr_type = std::make_unique<TypeNode>(TypeNodeType::OWNER, UniqueCast<TypeNode>(x.second->Clone()));
         auto ptr = builder_->CreateMalloc(Type::getInt64Ty(*context_), type,
                                           ConstantInt::get(*context_, APInt(64, EvaluateSize(x.second.get()))),
                                           nullptr);
+        scope_.Declare("", ptr, UniqueCast<TypeNode>(ptr_type->Clone()));
         builder_->CreateStore(x.first, ptr);
-        return {ptr, UniqueCast<TypeNode>(expected->Clone())};
+        return {ptr, std::move(ptr_type)};
     }
     if (const auto cast = is<CastNode>(get)) {
         if (cast->type == CastNodeType::STATIC) {
@@ -1110,6 +1121,10 @@ std::pair<Value*, std::unique_ptr<TypeNode> > LLVMBackend::GenerateRValue(AstNod
             args.push_back(GenerateRValue(arg.get(), expect.get()).first);
         }
         auto val = builder_->CreateCall(FunctionCallee(function->getFunctionType(), function), args);
+        
+        if (signature->type->type == TypeNodeType::OWNER) {
+            scope_.Declare("",val,UniqueCast<TypeNode>(signature->type->Clone()));
+        }
         return {val, UniqueCast<TypeNode>(callee.second->subtype[0]->Clone())};
     }
     if (const auto index = is<IndexNode>(get)) {

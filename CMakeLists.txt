@@ -72,8 +72,8 @@ add_executable(ngc src/main.cpp
         src/ast/nodes/do_while_node.h
         src/backends/llvm_backend.cpp
         src/backends/llvm_backend.h
-        src/backends/shared/Scope.cpp
-        src/backends/shared/Scope.h
+        src/backends/shared/scope.cpp
+        src/backends/shared/scope.h
         src/ast/nodes/AddressNode.cpp
         src/ast/nodes/AddressNode.h
         src/ast/nodes/LockNode.cpp

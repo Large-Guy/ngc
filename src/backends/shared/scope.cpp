@@ -22,7 +22,9 @@ void Scope::PopScope(struct LLVMBackend* backend, llvm::IRBuilder<>* builder, Bl
     stack.pop_back();
 }
 
-void Scope::Declare(const std::string& name, llvm::Value* value, std::unique_ptr<TypeNode> type) {
+void Scope::Declare(std::string name, llvm::Value* value, std::unique_ptr<TypeNode> type) {
+    if (name.empty())
+        name = std::to_string(anonymous++);
     stack.back()[name] = std::pair(value, std::move(type));
 }
 
