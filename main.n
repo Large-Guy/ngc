@@ -1,5 +1,15 @@
 module program;
 
+f32<2> lerp(f32<2> start, f32<2> end, f32 t)
+{
+    return start + (end - start) * t;
+}
+
+f32<2> bezier(f32<2> start, f32<2> control, f32<2> end, f32 t)
+{
+    return lerp(lerp(start, control, t), lerp(control, end, t), t);
+}
+
 i32 main()
 {
     i32* a = [1];
